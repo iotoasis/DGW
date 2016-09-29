@@ -1,0 +1,8 @@
+tools/ubcsp.o: tools/ubcsp.c /usr/include/stdc-predef.h config.h \
+ tools/ubcsp.h
+
+/usr/include/stdc-predef.h:
+
+config.h:
+
+tools/ubcsp.h:
