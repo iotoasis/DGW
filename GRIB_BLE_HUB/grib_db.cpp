@@ -2,7 +2,7 @@
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
-#include "include/grib_db.h"
+#include "grib_db.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
@@ -24,28 +24,25 @@ shbaek: Function
 #define __GRIB_DB_BASIC__
 int Grib_DbConfig(void)
 {
-	int iRes = GRIB_ERROR;
-	Grib_ConfigInfo pConfigInfo;
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
-	MEMSET(&pConfigInfo, 0x00, sizeof(Grib_ConfigInfo));
-
-	iRes = Grib_LoadConfig(&pConfigInfo);
-	if(iRes != GRIB_DONE)
+	pConfigInfo = Grib_GetConfigInfo();
+	if(pConfigInfo == NULL)
 	{
 		GRIB_LOGD("LOAD CONFIG ERROR !!!\n");
-		return iRes;
+		return GRIB_ERROR;
 	}
 
 	STRINIT(gSqlHost, sizeof(gSqlHost));
-	STRNCPY(gSqlHost, pConfigInfo.iotDbHost, STRLEN(pConfigInfo.iotDbHost));
+	STRNCPY(gSqlHost, pConfigInfo->iotDbHost, STRLEN(pConfigInfo->iotDbHost));
 
 	STRINIT(gSqlUser, sizeof(gSqlUser));
-	STRNCPY(gSqlUser, pConfigInfo.iotDbUser, STRLEN(pConfigInfo.iotDbUser));
+	STRNCPY(gSqlUser, pConfigInfo->iotDbUser, STRLEN(pConfigInfo->iotDbUser));
 
 	STRINIT(gSqlPswd, sizeof(gSqlPswd));
-	STRNCPY(gSqlPswd, pConfigInfo.iotDbPswd, STRLEN(pConfigInfo.iotDbPswd));
+	STRNCPY(gSqlPswd, pConfigInfo->iotDbPswd, STRLEN(pConfigInfo->iotDbPswd));
 
-	gSqlPort = pConfigInfo.iotDbPort;
+	gSqlPort = pConfigInfo->iotDbPort;
 
 	GRIB_LOGD("# MY-SQL CONFIG HOST: %s\n", gSqlHost);
 	GRIB_LOGD("# MY-SQL CONFIG PORT: %d\n", gSqlPort);
@@ -67,7 +64,7 @@ int Grib_DbClose(void)
 	STRINIT(gSqlHost, sizeof(gSqlHost));
 	STRINIT(gSqlUser, sizeof(gSqlUser));
 	STRINIT(gSqlPswd, sizeof(gSqlPswd));
-	gSqlPort    = NULL;
+	gSqlPort    = 0;
 	gSqlConnect = NULL;
 
 	GRIB_LOGD("%s CLOSE DONE\n", LOG_TAG_DB);
@@ -500,7 +497,6 @@ int Grib_DbDelDeviceFunc(char* deviceID)
 #define __GRIB_DB_UTIL__
 int Grib_DbGetDeviceCount(void)
 {
-	int i = 0;
 	int iRes = GRIB_ERROR;
 	int iDeviceCount = -1;
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };

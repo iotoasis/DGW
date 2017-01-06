@@ -22,7 +22,9 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"160830_CONNECT-TIME-OUT"
+#define GRIB_HUB_VERSION					"161205_ONE_M2M_v2.0"
+#define GRIB_HUB							"grib_hub"
+#define GRIB_SCRIPT						"grib.sh"
 
 #ifndef FALSE
 #define FALSE								0
@@ -94,6 +96,8 @@ shbaek: Define Constant
 #define GRIB_LN											'\n'
 #define GRIB_CRLN										"\r\n"
 
+#define GRIB_FILE_PATH_LOG_ROOT						"log"
+
 #define GRIB_STR_OK									"OK"
 #define GRIB_STR_ERROR									"ERROR"
 
@@ -139,7 +143,8 @@ shbaek: for Readability
 #endif
 
 #ifndef FREE
-#define FREE(pMem)										free((void *)pMem)
+#define FREE(pMem)										do{free((void *)pMem);\
+															pMem=NULL;}while(FALSE)
 #endif
 
 #ifndef MEMCPY
@@ -159,7 +164,7 @@ shbaek: for Readability
 #endif
 
 #ifndef STRLEN
-#define STRLEN(strSrc)									strlen((const char *)strSrc)
+#define STRLEN(strSrc)									(strSrc==NULL?0:strlen((const char *)strSrc))
 #endif
 
 #ifndef STRDUP //shbaek: Return Allocated Another String Memory.
@@ -241,6 +246,18 @@ shbaek: for Readability
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Type Define
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+typedef enum 
+{//shbaek: Command Index
+	GRIB_CMD_NAME		= 0, //shbaek: ./grib
+	GRIB_CMD_MAIN		= 1, //shbaek: start, regi, debug, test, ...
+	GRIB_CMD_SUB		= 2, 
+	GRIB_CMD_ARG1		= 3,
+	GRIB_CMD_ARG2		= 4,	
+	GRIB_CMD_ARG3		= 5,
+	GRIB_CMD_ARG4		= 5,
+	GRIB_CMD_MAX
+}Grib_CmdIndex;
+
 typedef enum
 {
 	//shbaek: Provide Device's Interface Type
@@ -248,10 +265,10 @@ typedef enum
 	DEVICE_IF_TYPE_BLE								= 1,
 	DEVICE_IF_TYPE_ZIGBEE								= 2,
 	DEVICE_IF_TYPE_ZWAVE								= 3,
-	DEVICE_IF_TYPE_EXTERNAL							= 4,
+	DEVICE_IF_TYPE_INTERNAL							= 4, //shbaek: No Have Semantic Descriptor
+	DEVICE_IF_TYPE_EXTERNAL							= 5,
 	DEVICE_IF_TYPE_MAX
 }Grib_DeviceIfType;
-
 
 typedef enum
 {
@@ -264,18 +281,25 @@ typedef enum
 
 typedef enum
 {
-	BLE_ERROR_CODE_NONE				= 0,
-	BLE_ERROR_CODE_BASE				= 100,
-	BLE_ERROR_CODE_INVALID_PARAM		= BLE_ERROR_CODE_BASE+1,
-	BLE_ERROR_CODE_CONNECT_FAIL		= BLE_ERROR_CODE_BASE+2,
-	BLE_ERROR_CODE_SEND_FAIL			= BLE_ERROR_CODE_BASE+3,
-	BLE_ERROR_CODE_RECV_FAIL			= BLE_ERROR_CODE_BASE+4,
-	BLE_ERROR_CODE_INTERNAL			= BLE_ERROR_CODE_BASE+5,
-	BLE_ERROR_CODE_INTERACTIVE		= BLE_ERROR_CODE_BASE+6,
-	BLE_ERROR_CODE_CRITICAL			= BLE_ERROR_CODE_BASE+99,
+	BLE_ERROR_CODE_NONE								= 0,
+    BLE_ERROR_CODE_GENERIC							= 1,
+    BLE_ERROR_CODE_INVALID_COMMAND					= 2,
+    BLE_ERROR_CODE_SENSOR								= 3,
+    BLE_ERROR_CODE_BLE								= 4,
+    BLE_ERROR_CODE_NOT_YET_IMPLEMENT					= 5,
+
+	BLE_ERROR_CODE_BASE								= 100,
+	BLE_ERROR_CODE_INVALID_PARAM						= BLE_ERROR_CODE_BASE+1,
+	BLE_ERROR_CODE_CONNECT_FAIL						= BLE_ERROR_CODE_BASE+2,
+	BLE_ERROR_CODE_SEND_FAIL							= BLE_ERROR_CODE_BASE+3,
+	BLE_ERROR_CODE_RECV_FAIL							= BLE_ERROR_CODE_BASE+4,
+	BLE_ERROR_CODE_INTERNAL							= BLE_ERROR_CODE_BASE+5,
+	BLE_ERROR_CODE_INTERACTIVE						= BLE_ERROR_CODE_BASE+6,
+	BLE_ERROR_CODE_CRITICAL							= BLE_ERROR_CODE_BASE+99,
 	BLE_ERROR_CODE_MAX
 }Grib_BleErrorCode;
 
+typedef struct tm TimeInfo;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Feature
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */

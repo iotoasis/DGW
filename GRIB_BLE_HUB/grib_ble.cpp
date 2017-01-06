@@ -1,278 +1,35 @@
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#include "include/grib_ble.h"
+#include "grib_ble.h"
 
-using namespace std;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-static struct hci_dev_info di; 
-static volatile int signal_received = 0;
-
 int gDebugBle = FALSE;
-int gTombStone = FALSE;
+int gBleTombStone = FALSE;
+
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
-static void sigint_handler(int sig)
-{
-	signal_received = sig;
-}
-
-static int read_flags(uint8_t *flags, const uint8_t *data, size_t size)
-{
-	size_t offset;
-
-	if (!flags || !data)
-		return -EINVAL;
-
-	offset = 0;
-	while (offset < size) {
-		uint8_t len = data[offset];
-		uint8_t type;
-
-		/* Check if it is the end of the significant part */
-		if (len == 0)
-			break;
-
-		if (len + offset > size)
-			break;
-
-		type = data[offset + 1];
-
-		if (type == FLAGS_AD_TYPE) {
-			*flags = data[offset + 2];
-			return 0;
-		}
-
-		offset += 1 + len;
-	}
-
-	return -ENOENT;
-}
-
-static int check_report_filter(uint8_t procedure, le_advertising_info *info)
-{
-	uint8_t flags;
-
-	/* If no discovery procedure is set, all reports are treat as valid */
-	if (procedure == 0)
-		return 1;
-
-	/* Read flags AD type value from the advertising report if it exists */
-	if (read_flags(&flags, info->data, info->length))
-		return 0;
-
-	switch (procedure) {
-	case 'l': /* Limited Discovery Procedure */
-		if (flags & FLAGS_LIMITED_MODE_BIT)
-			return 1;
-		break;
-	case 'g': /* General Discovery Procedure */
-		if (flags & (FLAGS_LIMITED_MODE_BIT | FLAGS_GENERAL_MODE_BIT))
-			return 1;
-		break;
-	default:
-		fprintf(stderr, "Unknown discovery procedure\n");
-	}
-
-	return 0;
-}
-
-static int eir_parse_name(uint8_t *eir, size_t eir_len, char *buf, size_t buf_len)
-{
-	size_t offset;
-
-	offset = 0;
-	while(offset < eir_len) 
-	{
-		uint8_t field_len = eir[0];
-		size_t name_len;
-
-		/* Check for the end of EIR */
-		if (field_len == 0) break;
-		if (offset + field_len > eir_len) goto failed;
-
-		switch (eir[1]) 
-		{
-			case EIR_NAME_SHORT:
-			case EIR_NAME_COMPLETE:
-				name_len = field_len - 1;
-				if (name_len > buf_len) goto failed;
-	
-				memcpy(buf, &eir[2], name_len);
-				return 1;
-		}
-
-		offset += field_len + 1;
-		eir += field_len + 1;	
-	}
-
-failed:
-	snprintf(buf, buf_len, "(unknown)");
-	return 0;
-}
-
-
-
-static int print_advertising_devices(int dd, uint8_t filter_type, int iScanCount)
-{
-	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
-	struct hci_filter nf, of;
-	struct sigaction sa;
-	socklen_t olen;
-	int len;
-	int iCount = 0;
-	int iMaxCount = 100;
-
-#if (FEATURE_IGNORE_DUPLICATE_ADDR == ON)
-	int idx = 0;
-	int noGet = TRUE;
-	bdaddr_t** ppAddrList;
-#endif
-
-	if(0 < iScanCount)
-	{
-		iMaxCount = iScanCount;
-	}
-
-	olen = sizeof(of);
-	if (getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0) {
-		printf("Could not get socket options\n");
-		return -1;
-	}
-
-	hci_filter_clear(&nf);
-	hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
-	hci_filter_set_event(EVT_LE_META_EVENT, &nf);
-
-	if (setsockopt(dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0) {
-		printf("Could not set socket options\n");
-		return -1;
-	}
-
-	memset(&sa, 0, sizeof(sa));
-	sa.sa_flags = SA_NOCLDSTOP;
-	sa.sa_handler = sigint_handler;
-	sigaction(SIGINT, &sa, NULL);
-
-#if (FEATURE_IGNORE_DUPLICATE_ADDR == ON)
-	ppAddrList = (bdaddr_t**) MALLOC(sizeof(bdaddr_t*) * iMaxCount);
-	for(idx=0; idx<iMaxCount; idx++)
-	{
-		ppAddrList[idx] = (bdaddr_t*) MALLOC(sizeof(bdaddr_t));
-		MEMSET(ppAddrList[idx], 0x00, sizeof(bdaddr_t));
-	}
-#endif
-
-	while(iCount < iMaxCount)
-	{
-		evt_le_meta_event *meta;
-		le_advertising_info *info;
-		char addr[18];
-
-		while ((len = read(dd, buf, sizeof(buf))) < 0) 
-		{
-			if (errno == EINTR && signal_received == SIGINT) 
-			{
-				len = 0;
-				goto done;
-			}
-
-			if (errno == EAGAIN || errno == EINTR)
-			{
-				continue;
-			}
-			goto done;
-		}
-
-		ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
-		len -= (1 + HCI_EVENT_HDR_SIZE);
-
-		meta = (evt_le_meta_event *) ptr;
-
-		if (meta->subevent != 0x02)
-			goto done;
-
-		/* Ignoring multiple reports */
-		info = (le_advertising_info *) (meta->data + 1);
-
-#if (FEATURE_IGNORE_DUPLICATE_ADDR == ON)
-		noGet = TRUE;
-		for(idx=0; idx<iCount; idx++)
-		{
-			if(memcmp(ppAddrList[idx], &info->bdaddr, sizeof(bdaddr_t)) == 0)
-			{//shbaek: Find Duplicated Item
-				noGet = FALSE;
-			}
-		}
-
-		if(noGet == TRUE)
-		{//shbaek: Take Item
-			memcpy(ppAddrList[iCount], &info->bdaddr, sizeof(bdaddr_t));
-		}
-		else
-		{//shbaek: Throw Trash
-			iCount++;
-			continue;
-		}
-#endif
-		if (check_report_filter(filter_type, info)) 
-		{
-			char name[30];
-
-			memset(name, 0, sizeof(name));
-
-			ba2str(&info->bdaddr, addr);
-			if(eir_parse_name(info->data, info->length, name, sizeof(name) - 1))
-			{
-				printf("%s %s\n", addr, name);
-				iCount++;
-			}
-		}
-	}
-
-done:
-	setsockopt(dd, SOL_HCI, HCI_FILTER, &of, sizeof(of));
-
-#if (FEATURE_IGNORE_DUPLICATE_ADDR == ON)
-	if(ppAddrList != NULL)
-	{
-		for(idx=0; idx<iMaxCount; idx++)
-		{
-			FREE(ppAddrList[idx]);
-		}
-		FREE(ppAddrList);
-	}
-#endif
-
-	if (len < 0)
-		return -1;
-
-	return 0;
-}
-
 int Grib_BleConfig(void)
 {
 	int iRes = GRIB_ERROR;
-	Grib_ConfigInfo pConfigInfo;
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
-	MEMSET(&pConfigInfo, 0x00, sizeof(Grib_ConfigInfo));
-
-	iRes = Grib_LoadConfig(&pConfigInfo);
-	if(iRes != GRIB_DONE)
+	pConfigInfo = Grib_GetConfigInfo();
+	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("LOAD CONFIG ERROR !!!\n");
-		return iRes;
+		GRIB_LOGD("GET CONFIG ERROR !!!\n");
+		return GRIB_ERROR;
 	}
 
-	gDebugBle  = pConfigInfo.debugBLE;
-	gTombStone = pConfigInfo.bleTombStone;
+	gDebugBle  = pConfigInfo->debugBLE;
+	gBleTombStone = pConfigInfo->tombStoneBLE;
 
-	GRIB_LOGD("# BLE CONFIG DEBUG LOG: %d\n", gDebugBle);
-	GRIB_LOGD("# BLE CONFIG TOMBSTONE: %d\n", gTombStone);
+	if(gDebugBle)GRIB_LOGD("# BLE CONFIG DEBUG LOG: %d\n", gDebugBle);
+	if(gDebugBle)GRIB_LOGD("# BLE CONFIG TOMBSTONE: %d\n", gBleTombStone);
 
 	return GRIB_SUCCESS;
 }
@@ -289,12 +46,12 @@ void Grib_BleTombStone(Grib_BleLogInfo* pLogInfo)
     char  pLogFilePath[SIZE_1K] = {'\0', };
 	char* pMsg = NULL;
 
-	if(gTombStone != TRUE)
+	if(gBleTombStone != TRUE)
 	{//shbaek: Use Not TombStone
 		return;
 	}
 
-    SNPRINTF(pLogFilePath, sizeof(pLogFilePath), "%s/%04d%02d%02d_%02d%02d%02d_%s.log", BLE_FILE_PATH_LOG_ROOT, 
+    SNPRINTF(pLogFilePath, sizeof(pLogFilePath), "%s/BLE_%04d%02d%02d_%02d%02d%02d_%s.log", BLE_FILE_PATH_LOG_ROOT, 
 												 sysTime->tm_year+1900, sysTime->tm_mon+1, sysTime->tm_mday,
 												 sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec, pLogInfo->blePipe);
 
@@ -332,7 +89,6 @@ void Grib_BleTombStone(Grib_BleLogInfo* pLogInfo)
 
 int Grib_BleCleanAll(void)
 {
-	int iRes = GRIB_ERROR;
 	int iDBG = gDebugBle;
 	const char* FUNC_TAG = "BLE-CLEAN";
 
@@ -340,7 +96,6 @@ int Grib_BleCleanAll(void)
 
 	DIR* pDirInfo = NULL;
 	struct dirent* pDirEntry = NULL;
-	struct stat fileStat;
 
 	if(access(BLE_FILE_PATH_LOG_ROOT, F_OK) != 0)
 	{
@@ -365,7 +120,7 @@ int Grib_BleCleanAll(void)
 		return GRIB_ERROR;
 	}
 
-	while(pDirEntry=readdir(pDirInfo))
+	while( (pDirEntry=readdir(pDirInfo)) != NULL)
 	{
 		STRINIT(pFilePath, sizeof(pFilePath));
 		SNPRINTF(pFilePath, sizeof(pFilePath), "%s/%s", BLE_FILE_PATH_PIPE_ROOT, pDirEntry->d_name);
@@ -374,14 +129,13 @@ int Grib_BleCleanAll(void)
 		unlink(pFilePath);
 	}
 
-FINAL:
-	if(iDBG)GRIB_LOGD("# %s: FINAL LABEL: %p\n", FUNC_TAG, pDirInfo);
+	GRIB_LOGD("# %s: DONE\n", FUNC_TAG);
 	if(pDirInfo != NULL)
 	{
 		closedir(pDirInfo);
 	}
 	
-	return iRes;
+	return GRIB_DONE;
 }
 
 int Grib_BlePipeReCreate(char *pipeFilePath)
@@ -392,7 +146,6 @@ int Grib_BlePipeReCreate(char *pipeFilePath)
 	const int MAX_RETRY_COUNT_CREATE_PIPE = 10;
 
 	DIR* pDirInfo = NULL;
-	struct dirent* pDirEntry = NULL;
 	const char* FUNC_TAG = "BLE-PIPE";
 
 	if(access(pipeFilePath, F_OK) == 0)
@@ -417,8 +170,6 @@ int Grib_BlePipeReCreate(char *pipeFilePath)
 
 	if(iDBG)GRIB_LOGD("# %s: CREATE NEW PIPE: %s\n", FUNC_TAG, pipeFilePath);
 
-FINAL:
-	if(iDBG)GRIB_LOGD("# %s: FINAL LABEL: %p\n", FUNC_TAG, pDirInfo);
 	if(pDirInfo != NULL)
 	{
 		closedir(pDirInfo);
@@ -436,7 +187,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 	int iStatus = GRIB_ERROR;
 	int pipeFileFD = GRIB_ERROR;
 
-	char pipeFilePath[SIZE_1K] = {NULL, };
+	char pipeFilePath[SIZE_1K] = {'\0', };
 
 	pid_t processID = GRIB_ERROR;
 
@@ -455,29 +206,27 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 
 	if(iDBG)
 	{
-		GRIB_LOGD("# %s-SEND: DEVICE ADDR   : %s\n", pipeFileName, deviceAddr);
-		GRIB_LOGD("# %s-SEND: PIPE FILE     : %s\n", pipeFileName, pipeFileName);
+		GRIB_LOGD("# %s-BLE : DEVICE ADDR   : %s\n", pipeFileName, deviceAddr);
+		GRIB_LOGD("# %s-BLE : PIPE FILE     : %s\n", pipeFileName, pipeFileName);
 	}
-	GRIB_LOGD("# %s-SEND: SEND MSG[%03d]: %s\n", pipeFileName, STRLEN(sendBuff), sendBuff);
+	GRIB_LOGD("# %s-BLE : SEND MSG[%03d]: %s\n", pipeFileName, STRLEN(sendBuff), sendBuff);
 
 	processID = fork();
 	if(processID == GRIB_ERROR)
 	{
-		GRIB_LOGD("# %s-SEND: PROCESS FORK FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		GRIB_LOGD("# %s-BLE : PROCESS FORK FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
 		return GRIB_ERROR;
 	}
-	if(iDBG)GRIB_LOGD("# %s-SEND: FORK PROCESS ID: %d\n", pipeFileName, processID);
+	if(iDBG)GRIB_LOGD("# %s-BLE : FORK PROCESS ID: %d\n", pipeFileName, processID);
 
 	STRINIT(pipeFilePath, sizeof(pipeFilePath));
 	SNPRINTF(pipeFilePath, sizeof(pipeFilePath), "%s/%s", BLE_FILE_PATH_PIPE_ROOT, pipeFileName);
-	if(iDBG)GRIB_LOGD("# %s-SEND: PIPE FILE PATH: %s\n", pipeFileName, pipeFilePath);
+	if(iDBG)GRIB_LOGD("# %s-BLE : PIPE FILE PATH: %s\n", pipeFileName, pipeFilePath);
 
 	switch(processID)
 	{
 		case 0:
 		{
-			char* pCMD = NULL;
-
 #if (FEATURE_GRIB_BLE_EX==ON)
 			//3 shbaek: Jump to Blecomm
 			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: JUMP BLE EXTEND\n", pipeFileName);
@@ -567,14 +316,14 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 			if(0 < pipeFileFD)
 			{
 				close(pipeFileFD);
-				pipeFileFD = NULL;
+				pipeFileFD = GRIB_ERROR;
 			}
 
 			break;
 		}
 	}
 
-	GRIB_LOGD("# %s-SEND: READ MSG[%03d]: %s\n", pipeFileName, STRLEN(recvBuff), recvBuff);
+	GRIB_LOGD("# %s-BLE : READ MSG[%03d]: %s\n", pipeFileName, STRLEN(recvBuff), recvBuff);
 
 	if(STRNCASECMP(recvBuff, BLE_RESPONSE_STR_ERROR, STRLEN(BLE_RESPONSE_STR_ERROR)) == 0)
 	{
@@ -590,12 +339,12 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 		bleLogInfo.bleRecvMsg	= recvBuff;
 		bleLogInfo.bleErrorMsg	= pError;
 
-		GRIB_LOGD("# %s-SEND: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+		GRIB_LOGD("# %s-BLE : # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 
 		Grib_BleTombStone(&bleLogInfo);
 
-		GRIB_LOGD("# %s-SEND: # ERROR MSG : %s[%d]\n", pipeFileName, pError, iError);
-		GRIB_LOGD("# %s-SEND: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+		GRIB_LOGD("# %s-BLE : # ERROR MSG : %s[%d]\n", pipeFileName, pError, iError);
+		GRIB_LOGD("# %s-BLE : # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 
 		if(iError == BLE_ERROR_CODE_CRITICAL)
 		{//3 shbaek: HCI DRIVER RESET
@@ -616,7 +365,7 @@ int Grib_BleDetourInit(void)
 	int   iRes = GRIB_ERROR;
 	int   iSkipCount = 0;
 
-	char* pCommand	= "sudo ./grib ble sinit";
+	const char* pCommand	= "sudo ./" BLE_GRIB_HCI_FILE_NAME " " BLE_GRIB_HCI_MENU_INIT;
 	char  pLineBuffer[SIZE_1M] = {'\0', };
 
 	iRes = systemCommand(pCommand, pLineBuffer, sizeof(pLineBuffer));
@@ -624,125 +373,9 @@ int Grib_BleDetourInit(void)
 	return iRes;
 }
 
-int Grib_BleDeviceInit(void)
-{
-	int dev_id, sock;
-	int i,ctl, err;
-
-	GRIB_LOGD("# BLE DEVICE INIT START\n");
-	
-	// Setting the stdout to line buffered, this forces a flush on every '\n' (newline). 
-	// This will ensure that the python program consuming the output will not have any buffer issues. 
-	setvbuf(stdout, (char *) NULL, _IOLBF, 0);
-	
-	// Opening a HCI socket 
-	if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) 
-	{
-		perror("Can't open HCI socket.");
-		return GRIB_ERROR;
-	}
-
-	// Connecting to the device and attempting to get the devices info, if this errors, 
-	// it implies the usb is not plugged in correctly or we may have a bad/dodgy bluetooth usb 
-	if (ioctl(ctl, HCIGETDEVINFO, (void *) &di)) 
-	{
-		perror("Can't get device info: Make sure the bluetooth usb is properly inserted. ");
-		return GRIB_ERROR;
-	}
-	
-	// Assigning the devices id 
-	dev_id = di.dev_id;
-
-	GRIB_LOGD("# HCI DEVICE DOWN\n");
-	// Stop HCI device (e.g - bluetooth usb) - we are doing this to reset the adapter 
-	if (ioctl(ctl, HCIDEVDOWN, dev_id) < 0)
-	{
-		fprintf(stderr, "Can't down device hci%d: %s (%d)\n", dev_id, strerror(errno), errno);
-		return GRIB_ERROR;
-	}
-
-	GRIB_LOGD("# HCI DEVICE UP\n");
-	// Start HCI device (e.g - bluetooth usb)
-	if (ioctl(ctl, HCIDEVUP,dev_id) < 0)
-	{
-		if (errno == EALREADY) return 0;
-		fprintf(stderr, "Can't init device hci%d: %s (%d)\n",dev_id, strerror(errno), errno);
-		return GRIB_ERROR;
-	}
-
-	hci_close_dev(sock);
-	GRIB_LOGD("# BLE DEVICE INIT DONE\n");
-  	return 0;
-}
-
-int Grib_BleDeviceScan(int iScanCount)
-{
-	int dev_id, sock;
-	int i, err;
-	
-	// Setting the stdout to line buffered, this forces a flush on every '\n' (newline). 
-	// This will ensure that the python program consuming the output will not have any buffer issues. 
-	setvbuf(stdout, (char *) NULL, _IOLBF, 0);
-
-	Grib_BleDeviceInit();
-
-	GRIB_LOGD("# BLE DEVICE SCAN START\n\n");
-
-	// Assigning the devices id 
-	dev_id = di.dev_id;
-
-	// Opening the ble device adapter so we can start scanning for iBeacons  
-	sock = hci_open_dev( dev_id );
-	
-	// Ensure that no error occured whilst opening the socket 
-	if (dev_id < 0 || sock < 0)
-	{
-		perror("opening socket");
-		return GRIB_ERROR;
-	}
-	
-	// Setting the scan parameters 
-	err = hci_le_set_scan_parameters(sock, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 10000);
-	if (err < 0) 
-	{
-		perror("Set scan parameters failed");
-		return GRIB_ERROR;
-	}
-	
-	// hci bluetooth library call - enabling the scan 
-	err = hci_le_set_scan_enable(sock, 0x01, 0x00 , 10000);
-	if (err < 0) 
-	{
-		perror("Enable scan failed");
-		return GRIB_ERROR;
-	}
-
-	// Our own print funtion based off the bluez print function 
-	err = print_advertising_devices(sock, 0, iScanCount);
-	if (err < 0)
-	{
-		perror("Could not receive advertising events");
-		return GRIB_ERROR;
-	}
-
-	// hci bluetooth library call - disabling the scan 
-	err = hci_le_set_scan_enable(sock, 0x00, 0x01, 10000);
-	if (err < 0)
-	{
-		perror("Disable scan failed");
-		return GRIB_ERROR;
-	}
-
-	hci_close_dev(sock);
-	GRIB_LOGD("# BLE DEVICE SCAN DONE\n");
-
-  	return 0;
-}
-
 int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 {
 	int   i = 0;
-	int   iDBG = gDebugBle;
 	int	  iRes = GRIB_ERROR;
 	char  recvBuff[BLE_MAX_SIZE_RECV_MSG+1] = {'\0', };
 	char* pSplitPoint = NULL;
@@ -779,7 +412,7 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 		GRIB_LOGD("# BLE-INFO: GET DEVICE LOC FAIL: %s\n", pRowDeviceInfo->deviceLoc);
 		return GRIB_FAIL;
 	}
-	pRowDeviceInfo->deviceLoc;
+	//pRowDeviceInfo->deviceLoc;
 
 	STRINIT(pRowDeviceInfo->deviceDesc, sizeof(pRowDeviceInfo->deviceDesc));
 	iRes = Grib_BleGetDeviceDesc(deviceAddr, deviceID, pRowDeviceInfo->deviceDesc);
@@ -788,7 +421,7 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 		GRIB_LOGD("# BLE-INFO: GET DEVICE DESC FAIL: %s\n", pRowDeviceInfo->deviceDesc);
 		return GRIB_FAIL;
 	}
-	pRowDeviceInfo->deviceDesc;
+	//pRowDeviceInfo->deviceDesc;
 
 	STRINIT(recvBuff, sizeof(recvBuff));
 	iRes = Grib_BleGetReportCycle(deviceAddr, deviceID, recvBuff);
@@ -876,7 +509,7 @@ int Grib_BleGetDeviceID(char* deviceAddr, char* recvBuff)
 	char  sendBuff[BLE_MAX_SIZE_SEND_MSG+1] = {'\0', };
 	char* pTemp = NULL;
 	char* pipeFileName = NULL;
-	char pipeFilePath[SIZE_1K] = {NULL, };
+	char pipeFilePath[SIZE_1K] = {'\0', };
 
 	STRINIT(sendBuff, sizeof(sendBuff));
 	STRNCPY(sendBuff, BLE_CMD_GET_DEVICE_ID, STRLEN(BLE_CMD_GET_DEVICE_ID));

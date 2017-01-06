@@ -40,4 +40,12 @@ shbaek: Define
 
 #define TEST_BLE_PIPE_FILE_NAME							"TEST_PIPE_FILE"
 
+#define TEST_SDA_DEVICE_ID								"ONSB_BleScanner01_001"
+
+#define TEST_CAS_HUB_ID									"LGU_SmartPlug_111111112"
+#define TEST_CAS_DEV_ID									"LGU_SmartPlug_111111113"
+
+#define TEST_BASE64_ENC_SRC								"Grib Test Base 64 Text"
+#define TEST_BASE64_DEC_SRC								"R3JpYiBUZXN0IEJhc2UgNjQgVGV4dA=="
+
 #endif

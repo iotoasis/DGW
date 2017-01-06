@@ -1,7 +1,7 @@
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#include "include/grib_thread.h"
+#include "grib_thread.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
@@ -9,38 +9,33 @@ shbaek: Global Variable
 int gDebugThread;
 char* gHubID;
 
-Grib_DbAll* 	  	gDbAll;
+Grib_DbAll* 	  		gDbAll;
 Grib_HubThreadInfo*		gHubThread;
 Grib_HubThreadInfo*		gResetThread;
 Grib_DeviceThreadInfo** gDevThreadList;
-
-#define TEST_SKIP_USE_ONEM2M		OFF
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 int Grib_SetThreadConfig(void)
 {
-	int iRes = GRIB_ERROR;
-	Grib_ConfigInfo pConfigInfo;
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
-	MEMSET(&pConfigInfo, 0x00, sizeof(Grib_ConfigInfo));
-
-	iRes = Grib_LoadConfig(&pConfigInfo);
-	if(iRes != GRIB_DONE)
+	pConfigInfo = Grib_GetConfigInfo();
+	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("LOAD CONFIG ERROR !!!\n");
-		return iRes;
+		GRIB_LOGD("GET CONFIG ERROR !!!\n");
+		return GRIB_ERROR;
 	}
 
-	gDebugThread = pConfigInfo.debugThread;
+	gDebugThread = pConfigInfo->debugThread;
 	if(gHubID != NULL)
 	{
 		FREE(gHubID);
 		gHubID = NULL;
 	}
 
-	gHubID = STRDUP(pConfigInfo.hubID);
+	gHubID = STRDUP(pConfigInfo->hubID);
 	GRIB_LOGD("# SET THREAD DEBUG: %s\n", GRIB_BOOL_TO_STR(gDebugThread));
 
 	return GRIB_DONE;
@@ -95,7 +90,7 @@ void *Grib_ContorolThread(void* threadArg)
 
 	if(threadArg == NULL)
 	{
-		GRIB_LOGD("0x%x THREAD INFO IS NULL", pthread_self());
+		GRIB_LOGD("%ld THREAD INFO IS NULL", pthread_self());
 		return NULL;
 	}
 
@@ -107,11 +102,22 @@ void *Grib_ContorolThread(void* threadArg)
 
 	pThreadInfo->controlThreadStatus = THREAD_STATUS_NONE;
 
+	GRIB_LOGD("# %s-CTR>: CONTROL THREAD START\n", deviceID);
+
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ResParam));
 
 	STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
 	STRNCPY(reqParam.xM2M_Origin, deviceID, STRLEN(deviceID));
+
+#ifdef FEATURE_CAS
+	if(STRLEN(pThreadInfo->authKey)<=1)
+	{
+		GRIB_LOGD("# %s-CTR>: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
+		return threadArg;
+	}
+	reqParam.authKey = pThreadInfo->authKey;
+#endif
 
 	while(TRUE)
 	{
@@ -120,7 +126,7 @@ void *Grib_ContorolThread(void* threadArg)
 		pThreadInfo->controlThreadStatus = THREAD_STATUS_POLLING;
 		pthread_mutex_unlock(&pThreadInfo->threadMutex);
 */
-		GRIB_LOGD("# %s-CTR>: POLLING START\n", deviceID);
+//		GRIB_LOGD("# %s-CTR>: POLLING START\n", deviceID);
 
 		iRes = Grib_LongPolling(&reqParam, &resParam);
 		if(iRes != GRIB_DONE)
@@ -136,6 +142,12 @@ void *Grib_ContorolThread(void* threadArg)
 			}
 
 			//SLEEP(1);//2 shbaek: DELAY FOR TEST
+			continue;
+		}
+
+		if(Grib_isAvailableExpireTime(resParam.xM2M_ExpireTime) == FALSE)
+		{
+			GRIB_LOGD("# %s-CTR>: COMMAND TIME IS NOT AVAILABLE: %s\n", deviceID, resParam.xM2M_ExpireTime);
 			continue;
 		}
 
@@ -299,7 +311,7 @@ void* Grib_ReportThread(void* threadArg)
 
 	if(threadArg == NULL)
 	{
-		GRIB_LOGD("0x%x THREAD INFO IS NULL", pthread_self());
+		GRIB_LOGD("%ld THREAD INFO IS NULL", pthread_self());
 		return NULL;
 	}
 
@@ -314,7 +326,7 @@ void* Grib_ReportThread(void* threadArg)
 		iCycleTime = GRIB_DEFAULT_REPORT_CYCLE;
 	}
 
-	GRIB_LOGD("# %s-RPT<: THREAD START\n", deviceID);
+//	GRIB_LOGD("# %s-RPT<: REPORT THREAD START\n", deviceID);
 
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ResParam));
@@ -324,6 +336,15 @@ void* Grib_ReportThread(void* threadArg)
 
 	STRINIT(&reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF));
 	SNPRINTF(&reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF), "%s:0", HTTP_CONTENT_TYPE_TEXT);
+
+#ifdef FEATURE_CAS
+	if(STRLEN(pThreadInfo->authKey)<=1)
+	{
+		GRIB_LOGD("# %s-RPT<: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
+		return threadArg;
+	}
+	reqParam.authKey = pThreadInfo->authKey;
+#endif
 
 	while(TRUE)
 	{
@@ -414,19 +435,11 @@ void* Grib_ReportThread(void* threadArg)
 			STRINIT(&reqParam.xM2M_CON, sizeof(reqParam.xM2M_CON));
 			STRNCPY(reqParam.xM2M_CON, pRes, STRLEN(pRes));
 
-#if (TEST_SKIP_USE_ONEM2M == OFF)
 			iRes = Grib_ContentInstanceCreate(&reqParam, &resParam);
-#else
-			iRes = GRIB_DONE;
-#endif
-			if(iRes == GRIB_ERROR)
-			{
-				//3 shbaek: Scenario?
-				GRIB_LOGD("# %s-RPT<: REPORT ERROR !!!\n", deviceID);
-				continue;
-			}
+
+			if(iRes == GRIB_DONE)GRIB_LOGD("# %s-RPT<: REPORT DONE\n", deviceID);
+			if(iRes == GRIB_ERROR)GRIB_LOGD("# %s-RPT<: REPORT ERROR !!!\n", deviceID);
 		}
-		GRIB_LOGD("# %s-RPT<: REPORT DONE\n", deviceID);
 		GRIB_LOGD("\n");
 
 		for(i=0; i<iCycleTime; i++)
@@ -465,8 +478,31 @@ void* Grib_ReportThread(void* threadArg)
 void* Grib_ResetThread(void* threadArg)
 {
 	int iDBG = gDebugThread;
+	int intervalTime = 6;
+	
 	time_t sysTimer;
 	struct tm *sysTime;
+
+	Grib_ConfigInfo* pConfigInfo = NULL;
+
+	pConfigInfo = Grib_GetConfigInfo();
+	if(pConfigInfo == NULL)
+	{
+		GRIB_LOGD("# RESET-THREAD: GET CONFIG ERROR !!!\n");
+		return NULL;
+	}
+
+	if(pConfigInfo->resetTimerSwitch == FALSE)
+	{
+		GRIB_LOGD("# RESET-THREAD: SWITCH OFF !!!\n");
+		return NULL;
+	}
+
+	if( (pConfigInfo->resetTimeHour!=0) && (pConfigInfo->resetTimeHour<24) )
+	{
+		intervalTime = pConfigInfo->resetTimeHour;		
+	}
+	GRIB_LOGD("# RESET-THREAD: INTERVAL TIME: %d\n", intervalTime);
 
 	while(TRUE)
 	{
@@ -475,10 +511,10 @@ void* Grib_ResetThread(void* threadArg)
 		if(iDBG)GRIB_LOGD("# RESET-THREAD: %02d:%02d:%02d\n", sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
 		SLEEP(10);
 
-		if( ((sysTime->tm_hour%6)==0) && (sysTime->tm_min==0) )
+		if( ((sysTime->tm_hour%intervalTime)==0) && (sysTime->tm_min==0) )
 		{
 			char pBuff[GRIB_MAX_SIZE_BRIEF] = {'\0', };
-			char* REBOOT_COMMAND = "sudo reboot";
+			const char* REBOOT_COMMAND = "sudo reboot";
 
 			GRIB_LOGD("# RESET-THREAD: RESET TIME !!!\n");
 			SLEEP(10);
@@ -491,27 +527,25 @@ void* Grib_ResetThread(void* threadArg)
 
 void* Grib_HubThread(void* threadArg)
 {
-	int i = 0;
 	int iRes = GRIB_ERROR;
 	int iDBG = gDebugThread;
-	int iTry = 0;
-
-	OneM2M_ReqParam reqParam;
-	OneM2M_ResParam resParam;
+	int needRegi = FALSE;
 
 	Grib_HubThreadInfo *pThreadInfo;
 
 	char* deviceID = NULL;
 	char* cmdConValue = NULL;
-	char* cmdFuncName = NULL;
 
-	int iTimeCheck = FALSE;
-	time_t sysTimer;
-	struct tm *sysTime;
+#ifdef FEATURE_CAS
+	char pAuthKey[CAS_AUTH_KEY_SIZE] = {'\0', };
+#endif
 
-	if(gHubID == NULL)
+	OneM2M_ReqParam hubReqParam;
+	OneM2M_ResParam hubResParam;
+
+	if( (gHubID==NULL) || (STRLEN(gHubID)<=1) )
 	{
-		GRIB_LOGD("# 0x%x HUB ID IS NULL", pthread_self());
+		GRIB_LOGD("# %ld HUB ID IS NULL", pthread_self());
 
 		iRes = Grib_SetThreadConfig();
 		if(iRes != GRIB_DONE)
@@ -520,21 +554,9 @@ void* Grib_HubThread(void* threadArg)
 		}
 	}
 
-	iRes = Grib_HubRegi();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("# %s: HUB TREE CREATE ERROR !!!\n", gHubID);
-	}
-
-	iRes = Grib_UpdateHubInfo();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("# %s: HUB INFO UPDATE ERROR !!!\n", gHubID);
-	}
-
 	if(threadArg == NULL)
 	{
-		GRIB_LOGD("# %s: THREAD INFO IS NULL", gHubID);
+		GRIB_LOGD("# %s: THREAD INFO IS NULL !!!\n", gHubID);
 		return NULL;
 	}
 
@@ -542,39 +564,113 @@ void* Grib_HubThread(void* threadArg)
 	pThreadInfo	= (Grib_HubThreadInfo *)threadArg;
 	deviceID	= gHubID;
 
-	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
-	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ResParam));
+	MEMSET(&hubReqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
+	MEMSET(&hubResParam, GRIB_INIT, sizeof(OneM2M_ResParam));
 
-	STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-	STRNCPY(reqParam.xM2M_Origin, deviceID, STRLEN(deviceID));
+	STRNCPY(hubReqParam.xM2M_Origin, deviceID, STRLEN(deviceID));
+
+
+#ifdef FEATURE_CAS
+	iRes = Grib_CasGetAuthKey(deviceID, pAuthKey);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: GET AUTH KEY ERROR !!!\n\n", deviceID);
+		return threadArg;
+	}
+	//GRIB_LOGD("# %s: AUTH KEY: %s\n", deviceID, pAuthKey);
+#endif
+
+#ifdef FEATURE_CAS
+	hubReqParam.authKey = pAuthKey;
+#endif
+
+	STRINIT(hubReqParam.xM2M_URI, sizeof(hubReqParam.xM2M_URI));
+	SNPRINTF(hubReqParam.xM2M_URI, sizeof(hubReqParam.xM2M_URI), "%s/%s/%s", 
+		hubReqParam.xM2M_Origin, ONEM2M_URI_CONTENT_HUB, ONEM2M_URI_CONTENT_STATUS);
+	iRes = Grib_ContainerRetrieve(&hubReqParam, &hubResParam);
+	if(iRes != GRIB_DONE)
+	{
+		if(hubResParam.http_ResNum == HTTP_STATUS_CODE_NOT_FOUND)
+		{//shbaek: Need Create Tree ...
+			needRegi = TRUE;
+		}
+	}
+
+	STRINIT(hubReqParam.xM2M_URI, sizeof(hubReqParam.xM2M_URI));
+	SNPRINTF(hubReqParam.xM2M_URI, sizeof(hubReqParam.xM2M_URI), "%s/%s/%s", 
+		hubReqParam.xM2M_Origin, ONEM2M_URI_CONTENT_DEVICE, ONEM2M_URI_CONTENT_STATUS);
+	iRes = Grib_ContainerRetrieve(&hubReqParam, &hubResParam);
+	if(iRes != GRIB_DONE)
+	{
+		if(hubResParam.http_ResNum == HTTP_STATUS_CODE_NOT_FOUND)
+		{//shbaek: Need Create Tree ...
+			needRegi = TRUE;
+		}
+	}
+
+	GRIB_LOGD("# %s: NEED CREATE TREE: %s\n", deviceID, GRIB_BOOL_TO_STR(needRegi));
+
+	if(needRegi == TRUE)
+	{
+#ifdef FEATURE_CAS
+		iRes = Grib_HubRegi(pAuthKey);
+#else
+		iRes = Grib_HubRegi();
+#endif
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# %s: HUB TREE CREATE ERROR !!!\n", deviceID);
+		}
+	}
+#ifdef FEATURE_CAS
+	iRes = Grib_UpdateHubInfo(pAuthKey);
+#else
+	iRes = Grib_UpdateHubInfo();
+#endif
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: HUB INFO UPDATE ERROR !!!\n", deviceID);
+	}
+
+#ifdef FEATURE_CAS
+	iRes = Grib_UpdateDeviceInfo(gDbAll, pAuthKey);
+#else
+	iRes = Grib_UpdateDeviceInfo(gDbAll);
+#endif
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: DEVICE INFO UPDATE ERROR !!!\n", deviceID);
+	}
+
+	STRINIT(hubReqParam.xM2M_URI, sizeof(hubReqParam.xM2M_URI));
 
 	while(TRUE)
 	{
 		GRIB_LOGD("# %s: POLLING START\n", deviceID);
 
-		iRes = Grib_LongPolling(&reqParam, &resParam);
+		iRes = Grib_LongPolling(&hubReqParam, &hubResParam);
 		if(iRes != GRIB_DONE)
 		{
-			if(resParam.http_ResNum == HTTP_STATUS_CODE_REQUEST_TIME_OUT)
+			if(hubResParam.http_ResNum == HTTP_STATUS_CODE_REQUEST_TIME_OUT)
 			{
 				GRIB_LOGD("# %s: POLLING TIME OUT\n", deviceID);
 			}
 			else
 			{
-				GRIB_LOGD("# %s: POLLING ERROR MSG: %s[%d]\n", deviceID, resParam.http_ResMsg, resParam.http_ResNum);
+				GRIB_LOGD("# %s: POLLING ERROR MSG: %s[%d]\n", deviceID, hubResParam.http_ResMsg, hubResParam.http_ResNum);
 				SLEEP(1);
 			}
 
 			continue;
 		}
 
-		cmdConValue = resParam.xM2M_Content;
-		GRIB_LOGD("# %s: COMMAND: %s\n", deviceID, cmdConValue);
+		cmdConValue = hubResParam.xM2M_Content;
+		if(iDBG)GRIB_LOGD("# %s: COMMAND: %s\n", deviceID, cmdConValue);
 
 		if(STRCASECMP(cmdConValue, "reboot") == 0)
 		{
 			char pBuff[GRIB_MAX_SIZE_BRIEF] = {'\0', };
-			char* REBOOT_COMMAND = "sudo reboot";
+			const char* REBOOT_COMMAND = "sudo reboot";
 
 			GRIB_LOGD("# %s: RESET TIME !!!\n", deviceID);
 			SLEEP(10);
@@ -594,49 +690,11 @@ int Grib_ThreadStart(void)
 {
 	int i = 0;
 	int iRes = GRIB_ERROR;
-	int iDeviceCount = 0;
-	int iDeviceMaxCount = 0;
+	int DEVICE_MAX_COUNT = 0;
 
-	int iFuncCount = 0;
-	int iCheckCount = 0;
-
-	Grib_DbRowDeviceInfo*  pRowDeviceInfo;
-	Grib_DbRowDeviceFunc*  pRowDeviceFunc;
+	Grib_DbRowDeviceInfo*  pRowDeviceInfo = NULL;
 
 	const char* FUNC_TAG = "# THREAD-START:";
-
-	//shbaek: Config
-	iRes = Grib_SetThreadConfig();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC_TAG);
-		goto FINAL;
-	}
-	iRes = Grib_SetServerConfig();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC_TAG);
-		goto FINAL;
-	}
-	iRes = Grib_BleConfig();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s BLE CONFIG ERROR\n", FUNC_TAG);
-		goto FINAL;
-	}
-
-	//shbaek: Init
-	iRes = Grib_BleDetourInit();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s BLE INIT FAIL\n", FUNC_TAG);
-	}
-
-	iRes = Grib_BleCleanAll();
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s BLE PIPE CLEAN FAIL\n", FUNC_TAG);
-	}
 
 	//shbaek: Pre-Pare
 	iRes = Grib_DbCreate();
@@ -645,7 +703,6 @@ int Grib_ThreadStart(void)
 		GRIB_LOGD("%s NEED NOT DB CREATE\n", FUNC_TAG);
 		Grib_DbClose();
 	}
-
 
 	gDbAll = (Grib_DbAll *)MALLOC(sizeof(Grib_DbAll));
 	MEMSET(gDbAll, GRIB_INIT, sizeof(Grib_DbAll));
@@ -657,49 +714,76 @@ int Grib_ThreadStart(void)
 		goto FINAL;
 	}
 
-	iDeviceMaxCount = gDbAll->deviceCount;
-	GRIB_LOGD("%s DEVICE ALL COUNT: %d\n", FUNC_TAG, iDeviceMaxCount);
+	DEVICE_MAX_COUNT = gDbAll->deviceCount;
+	GRIB_LOGD("%s DEVICE ALL COUNT: %d\n", FUNC_TAG, DEVICE_MAX_COUNT);
 
-	if(iDeviceMaxCount == 0)
+	if(DEVICE_MAX_COUNT == 0)
 	{
 		GRIB_LOGD("# ########## ########## ########## ##########\n");
 		GRIB_LOGD("%s NO REGISTERED DEVICES\n", FUNC_TAG);
 		GRIB_LOGD("%s REGISTE YOUR DEVICE ... \n", FUNC_TAG);
 		GRIB_LOGD("# ########## ########## ########## ##########\n");
-		goto FINAL;
-	}
-	else
-	{
-		Grib_UpdateDeviceInfo(gDbAll);
+//		goto FINAL;
 	}
 
 	GRIB_LOGD("%s DEVICE INFO SETTING\n", FUNC_TAG);
-	gDevThreadList = (Grib_DeviceThreadInfo**)MALLOC(sizeof(Grib_DeviceThreadInfo*)*iDeviceMaxCount);
-	for(iDeviceCount=0; iDeviceCount<iDeviceMaxCount; iDeviceCount++)
+	gDevThreadList = (Grib_DeviceThreadInfo**)MALLOC(sizeof(Grib_DeviceThreadInfo*)*DEVICE_MAX_COUNT);
+	for(i=0; i<DEVICE_MAX_COUNT; i++)
 	{
-		gDevThreadList[iDeviceCount] = (Grib_DeviceThreadInfo*)MALLOC(sizeof(Grib_DeviceThreadInfo));
-		MEMSET(gDevThreadList[iDeviceCount], GRIB_INIT, sizeof(Grib_DeviceThreadInfo));
+		gDevThreadList[i] = (Grib_DeviceThreadInfo*)MALLOC(sizeof(Grib_DeviceThreadInfo));
+		MEMSET(gDevThreadList[i], GRIB_INIT, sizeof(Grib_DeviceThreadInfo));
 
-		pRowDeviceInfo = gDevThreadList[iDeviceCount]->pRowDeviceInfo = gDbAll->ppRowDeviceInfo[iDeviceCount];
+		pRowDeviceInfo = gDevThreadList[i]->pRowDeviceInfo = gDbAll->ppRowDeviceInfo[i];
 
-		GRIB_LOGD("%s DEVICE[%d/%d] ID:%s ADDR:%s\n",
-			FUNC_TAG,
-			iDeviceCount, iDeviceMaxCount,
-			gDevThreadList[iDeviceCount]->pRowDeviceInfo->deviceID,
-			gDevThreadList[iDeviceCount]->pRowDeviceInfo->deviceAddr);
+		GRIB_LOGD("%s DEVICE[%d/%d] ID:%s ADDR:%s\n", FUNC_TAG, i, DEVICE_MAX_COUNT-1,
+			gDevThreadList[i]->pRowDeviceInfo->deviceID, gDevThreadList[i]->pRowDeviceInfo->deviceAddr);
+
+#ifdef FEATURE_CAS
+		iRes = Grib_CasGetAuthKey(gDevThreadList[i]->pRowDeviceInfo->deviceID, gDevThreadList[i]->authKey);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("%s DEVICE[%d/%d] ID:%s GET AUTH KEY ERROR !!!\n", FUNC_TAG, i, DEVICE_MAX_COUNT-1,
+				gDevThreadList[i]->pRowDeviceInfo->deviceID);
+		}
+		else
+		{
+			GRIB_LOGD("%s DEVICE[%d/%d] ID:%s AUTH:%s\n", FUNC_TAG, i, DEVICE_MAX_COUNT-1,
+				gDevThreadList[i]->pRowDeviceInfo->deviceID, gDevThreadList[i]->authKey);
+		}
+		GRIB_LOGD("\n");
+#endif
+
 	}
 
 	GRIB_LOGD("%s ATTR/COND/MUTEX INIT\n", FUNC_TAG);
 	//shbaek: Init
-	for(i=0; i<iDeviceMaxCount; i++)
+	for(i=0; i<DEVICE_MAX_COUNT; i++)
 	{
 		pthread_attr_init(&gDevThreadList[i]->threadAttr);
 		pthread_cond_init(&gDevThreadList[i]->threadCond, GRIB_NOT_USED);
 		pthread_mutex_init(&gDevThreadList[i]->threadMutex, GRIB_NOT_USED);		
 	}
 
+	//3 shbaek: Hub Thread Init & Create
+	gHubThread = (Grib_HubThreadInfo*)MALLOC(sizeof(Grib_HubThreadInfo));
+	MEMSET(gHubThread, 0x00, sizeof(Grib_HubThreadInfo));
+
+	pthread_attr_init(&gHubThread->threadAttr);
+	pthread_cond_init(&gHubThread->threadCond, GRIB_NOT_USED);
+	pthread_mutex_init(&gHubThread->threadMutex, GRIB_NOT_USED);
+	pthread_create(&gHubThread->threadID, &gHubThread->threadAttr, Grib_HubThread, (void *)gHubThread);
+
+	//3 shbaek: Reset Thread Init & Create
+	gResetThread = (Grib_HubThreadInfo*)MALLOC(sizeof(Grib_HubThreadInfo));
+	MEMSET(gResetThread, 0x00, sizeof(Grib_HubThreadInfo));
+
+	pthread_attr_init(&gResetThread->threadAttr);
+	pthread_cond_init(&gResetThread->threadCond, GRIB_NOT_USED);
+	pthread_mutex_init(&gResetThread->threadMutex, GRIB_NOT_USED);
+	pthread_create(&gResetThread->threadID, &gResetThread->threadAttr, Grib_ResetThread, (void *)gResetThread);
+
 	//shbaek: Create
-	for(i=0; i<iDeviceMaxCount; i++)
+	for(i=0; i<DEVICE_MAX_COUNT; i++)
 	{
 		int   iAttr = GRIB_INIT;
 		char *strDeviceID = gDevThreadList[i]->pRowDeviceInfo->deviceID;
@@ -709,9 +793,7 @@ int Grib_ThreadStart(void)
 		if(FUNC_ATTR_CHECK_CONTROL(iAttr)==TRUE)
 		{
 			GRIB_LOGD("%s %s CONTROL THREAD CREATE\n", FUNC_TAG, strDeviceID);
-#if (TEST_SKIP_USE_ONEM2M == OFF)
 			pthread_create(&gDevThreadList[i]->controlThreadID, NULL, Grib_ContorolThread, (void *)gDevThreadList[i]);
-#endif
 			SLEEP(1);
 		}
 		else
@@ -731,28 +813,10 @@ int Grib_ThreadStart(void)
 		}
 
 	}
-	
-	//3 shbaek: Hub Thread Init & Create
-	gHubThread = (Grib_HubThreadInfo*)MALLOC(sizeof(Grib_HubThreadInfo));
-	MEMSET(gHubThread, 0x00, sizeof(Grib_HubThreadInfo));
-
-	pthread_attr_init(&gHubThread->threadAttr);
-	pthread_cond_init(&gHubThread->threadCond, GRIB_NOT_USED);
-	pthread_mutex_init(&gHubThread->threadMutex, GRIB_NOT_USED);
-	pthread_create(&gHubThread->threadID, &gHubThread->threadAttr, Grib_HubThread, (void *)gHubThread);
-
-	//3 shbaek: Reset Thread Init & Create
-	gResetThread = (Grib_HubThreadInfo*)MALLOC(sizeof(Grib_HubThreadInfo));
-	MEMSET(gResetThread, 0x00, sizeof(Grib_HubThreadInfo));
-
-	pthread_attr_init(&gResetThread->threadAttr);
-	pthread_cond_init(&gResetThread->threadCond, GRIB_NOT_USED);
-	pthread_mutex_init(&gResetThread->threadMutex, GRIB_NOT_USED);
-	pthread_create(&gResetThread->threadID, &gResetThread->threadAttr, Grib_ResetThread, (void *)gResetThread);
 
 	GRIB_LOGD("%s THREAD WAIT\n", FUNC_TAG);
 	//shbaek: Wait
-	for(i=0; i<iDeviceMaxCount; i++)
+	for(i=0; i<DEVICE_MAX_COUNT; i++)
 	{
 		char *strDeviceID = gDevThreadList[i]->pRowDeviceInfo->deviceID;
 
@@ -788,7 +852,7 @@ FINAL:
 	GRIB_LOGD("%s THREAD FINAL\n", FUNC_TAG);
 	if(gDevThreadList != NULL)
 	{
-		for(i=0; i<iDeviceMaxCount; i++)
+		for(i=0; i<DEVICE_MAX_COUNT; i++)
 		{
 			pthread_mutex_destroy(&gDevThreadList[i]->threadMutex);
 			FREE(gDevThreadList[i]);
@@ -799,9 +863,9 @@ FINAL:
 
 	if(gDbAll != NULL)
 	{
-		for(i=0; i<iDeviceMaxCount; i++)
+		for(i=0; i<DEVICE_MAX_COUNT; i++)
 		{
-			pRowDeviceInfo = gDbAll->ppRowDeviceInfo[iDeviceCount];
+			pRowDeviceInfo = gDbAll->ppRowDeviceInfo[i];
 			Grib_DbFreeRowFunc(pRowDeviceInfo->ppRowDeviceFunc, pRowDeviceInfo->deviceFuncCount);
 			if(pRowDeviceInfo!=NULL)FREE(pRowDeviceInfo);
 		}

@@ -1,35 +1,40 @@
-#ifndef __GRIB_REGI_H__
-#define __GRIB_REGI_H__
+#ifndef __GRIB_SDA_H__
+#define __GRIB_SDA_H__
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
 #include "grib_define.h"
-#include "grib_onem2m.h"
-
-#include "grib_db.h"
-#include "grib_ble.h"
+#include "grib_http.h"
 #include "grib_util.h"
-#include "grib_auth.h"
 
-#ifdef FEATURE_CAS
-#include "grib_cas.h"
-#endif
+
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#define SDA_MAX_DEVICE_INFO 										(HTTP_MAX_SIZE)
+
+#define SDA_GET_DEVICE_INFO_FORMAT_RAW							\
+		"GET http://%s:%d/sda/deviceinfo/deviceinfo?p=%s\r\n"
+
+#define SDA_GET_DEVICE_INFO_FORMAT_HTTP							\
+		"GET /sda/deviceinfo/deviceinfo?p=%s HTTP/1.1\r\n"			\
+		"Host: %s:%d\r\n"											\
+		"Content-Type:" HTTP_CONTENT_TYPE_JSON "\r\n"				\
+		"Accept:" HTTP_CONTENT_TYPE_JSON "\r\n"						\
+		"\r\n"
+
+/*
+		"http://166.104.112.43:20080/sda/deviceinfo/deviceinfo?p=ONSB_BleScanner01_001"
+*/
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-int Grib_DeviceRegi(char* deviceAddr, int optAuth);
-int Grib_DeviceDeRegi(char* deviceID, int delOneM2M);
+void Grib_SdaSetDebug(int iDebug);
+int  Grib_SdaSetServerConfig(void);
 
-#ifdef FEATURE_CAS
-int Grib_HubRegi(char* pAuthKey);
-#else
-int Grib_HubRegi(void);
-#endif
+int  Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo);
 
 #endif

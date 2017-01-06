@@ -24,6 +24,10 @@ shbaek: Include File
 
 #include "grib_regi.h"
 
+#ifdef FEATURE_CAS
+#include "grib_cas.h"
+#endif
+
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -39,6 +43,10 @@ typedef struct
 
 	int controlThreadStatus;
 	int reportThreadStatus;
+
+#ifdef FEATURE_CAS
+	char authKey[CAS_AUTH_KEY_SIZE];
+#endif
 
 	Grib_DbRowDeviceInfo*  pRowDeviceInfo;
 
