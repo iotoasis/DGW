@@ -438,7 +438,17 @@ void* Grib_ReportThread(void* threadArg)
 			iRes = Grib_ContentInstanceCreate(&reqParam, &resParam);
 
 			if(iRes == GRIB_DONE)GRIB_LOGD("# %s-RPT<: REPORT DONE\n", deviceID);
-			if(iRes == GRIB_ERROR)GRIB_LOGD("# %s-RPT<: REPORT ERROR !!!\n", deviceID);
+			if(iRes == GRIB_ERROR)
+			{
+				GRIB_LOGD("# %s-RPT<: REPORT ERROR !!!\n", deviceID);
+
+				if(resParam.http_ResNum == HTTP_STATUS_CODE_UNAUTHORIZED)
+				{//shbaek: Change Auth Key
+					GRIB_LOGD("# %s-RPT<: CHANGE AUTH KEY !!!\n", deviceID);
+					Grib_CasGetAuthKey(deviceID, pThreadInfo->authKey);
+					reqParam.authKey = pThreadInfo->authKey;
+				}
+			}
 		}
 		GRIB_LOGD("\n");
 
@@ -516,8 +526,13 @@ void* Grib_ResetThread(void* threadArg)
 			char pBuff[GRIB_MAX_SIZE_BRIEF] = {'\0', };
 			const char* REBOOT_COMMAND = "sudo reboot";
 
+			for(int i=30; 0<i; i--)
+			{
+				GRIB_LOGD("# RESET-THREAD: RESET COUNT: %d \n", i);
+				SLEEP(1);
+			}
+
 			GRIB_LOGD("# RESET-THREAD: RESET TIME !!!\n");
-			SLEEP(10);
 			systemCommand(REBOOT_COMMAND, pBuff, sizeof(pBuff));
 		}
 	}
@@ -655,6 +670,12 @@ void* Grib_HubThread(void* threadArg)
 			{
 				GRIB_LOGD("# %s: POLLING TIME OUT\n", deviceID);
 			}
+			else if(hubResParam.http_ResNum == HTTP_STATUS_CODE_UNAUTHORIZED)
+			{//shbaek: Change Auth Key
+				GRIB_LOGD("# %s: CHANGE AUTH KEY !!!\n", deviceID);
+				Grib_CasGetAuthKey(deviceID, pAuthKey);
+				hubReqParam.authKey = pAuthKey;
+			}
 			else
 			{
 				GRIB_LOGD("# %s: POLLING ERROR MSG: %s[%d]\n", deviceID, hubResParam.http_ResMsg, hubResParam.http_ResNum);
@@ -663,7 +684,7 @@ void* Grib_HubThread(void* threadArg)
 
 			continue;
 		}
-
+			
 		cmdConValue = hubResParam.xM2M_Content;
 		if(iDBG)GRIB_LOGD("# %s: COMMAND: %s\n", deviceID, cmdConValue);
 
