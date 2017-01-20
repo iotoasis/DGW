@@ -21,9 +21,9 @@ int Grib_CasInit(char* hubID)
 	char  pathCurrunt[PATH_MAX] = {'\0', };
 	char  pathCasLib[PATH_MAX] = {'\0', };
 
-	if(hubID == NULL)
+	if(STRLEN(hubID) <= 1)
 	{
-		GRIB_LOGD("# %s: PARAM IS NULL !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: HUB ID IN-VALID !!!\n", FUNC_TAG);
 		return GRIB_ERROR;
 	}
 
@@ -172,8 +172,22 @@ int Grib_CasGetAuthKey(char* devID, char* keyBuff)
 
 	if(STRLEN(casHubID) == 0)
 	{
-		GRIB_LOGD("# %s: TOOL KIT IS NOT INIT !!!\n", FUNC_TAG);
-		return GRIB_ERROR;
+		Grib_ConfigInfo* pConfigInfo = NULL;
+		
+		GRIB_LOGD("# %s: TOOL KIT NOT INIT !!!\n", FUNC_TAG);
+
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# %s: GET CONFIG ERROR !!!\n", FUNC_TAG);
+			return GRIB_ERROR;
+		}
+		iRes = Grib_CasInit(pConfigInfo->hubID);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# %s: INIT FAIL !!!\n", FUNC_TAG);
+			return GRIB_ERROR;
+		}
 	}
 
 	if(iDBG)

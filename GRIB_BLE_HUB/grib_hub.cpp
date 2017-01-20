@@ -826,13 +826,17 @@ void Grib_MenuTest(int argc, char **argv)
 
 		if(STRLEN(argv[GRIB_CMD_ARG1]) <= 0)
 		{
-			deviceID = TEST_SDA_DEVICE_ID;
+			GRIB_LOGD("# IN-VALID DEVICE ID !!!\n");
+			GRIB_LOGD("# INPUT DEVICE ID: %s[%d]\n", argv[GRIB_CMD_ARG1], STRLEN(argv[GRIB_CMD_ARG1]));
+			return;
 		}
 		else
 		{
 			deviceID = argv[GRIB_CMD_ARG1];
 		}
 		Grib_SdaGetDeviceInfo(deviceID, deviceInfo);
+		GRIB_LOGD("# SEMANTIC DESCRIPTOR[%d]:\n%s\n", STRLEN(deviceInfo), deviceInfo);
+
 		return;
 	}
 
@@ -848,13 +852,13 @@ void Grib_MenuTest(int argc, char **argv)
 
 	if(STRCASECMP(subMenu, "print") == 0)
 	{
-		long stackLimit = Grib_GetStackLimit();
+		//long stackLimit = Grib_GetStackLimit();
+
 		printf("# ##### ##### ##### ##### ##### ##### ##### #####\n");
-		printf("# TEST PRINT: %ld\n", stackLimit);
+		printf("# TEST PRINT: %s\n", getenv( "HOME" ));
 		printf("# ##### ##### ##### ##### ##### ##### ##### #####\n");
 		return;
 	}
-
 
 	if(STRCASECMP(subMenu, "ebase64") == 0)
 	{

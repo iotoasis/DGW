@@ -102,7 +102,7 @@ void *Grib_ContorolThread(void* threadArg)
 
 	pThreadInfo->controlThreadStatus = THREAD_STATUS_NONE;
 
-	GRIB_LOGD("# %s-CTR>: CONTROL THREAD START\n", deviceID);
+	GRIB_LOGD("# %s-CTR<: CONTROL THREAD START\n", deviceID);
 
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ResParam));
@@ -113,7 +113,7 @@ void *Grib_ContorolThread(void* threadArg)
 #ifdef FEATURE_CAS
 	if(STRLEN(pThreadInfo->authKey)<=1)
 	{
-		GRIB_LOGD("# %s-CTR>: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
+		GRIB_LOGD("# %s-CTR<: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
 		return threadArg;
 	}
 	reqParam.authKey = pThreadInfo->authKey;
@@ -126,18 +126,18 @@ void *Grib_ContorolThread(void* threadArg)
 		pThreadInfo->controlThreadStatus = THREAD_STATUS_POLLING;
 		pthread_mutex_unlock(&pThreadInfo->threadMutex);
 */
-//		GRIB_LOGD("# %s-CTR>: POLLING START\n", deviceID);
+//		GRIB_LOGD("# %s-CTR<: POLLING START\n", deviceID);
 
 		iRes = Grib_LongPolling(&reqParam, &resParam);
 		if(iRes != GRIB_DONE)
 		{
 			if(resParam.http_ResNum == HTTP_STATUS_CODE_REQUEST_TIME_OUT)
 			{
-				GRIB_LOGD("# %s-CTR>: POLLING TIME OUT\n", deviceID);
+				GRIB_LOGD("# %s-CTR<: POLLING TIME OUT\n", deviceID);
 			}
 			else
 			{
-				GRIB_LOGD("# %s-CTR>: POLLING ERROR MSG: %s[%d]\n", deviceID, resParam.http_ResMsg, resParam.http_ResNum);
+				GRIB_LOGD("# %s-CTR<: POLLING ERROR MSG: %s[%d]\n", deviceID, resParam.http_ResMsg, resParam.http_ResNum);
 				SLEEP(1);
 			}
 
@@ -147,11 +147,11 @@ void *Grib_ContorolThread(void* threadArg)
 
 		if(Grib_isAvailableExpireTime(resParam.xM2M_ExpireTime) == FALSE)
 		{
-			GRIB_LOGD("# %s-CTR>: COMMAND TIME IS NOT AVAILABLE: %s\n", deviceID, resParam.xM2M_ExpireTime);
+			GRIB_LOGD("# %s-CTR<: COMMAND TIME IS NOT AVAILABLE: %s\n", deviceID, resParam.xM2M_ExpireTime);
 			continue;
 		}
 
-		GRIB_LOGD("# %s-CTR>: COMMAND START\n", deviceID);
+		GRIB_LOGD("# %s-CTR<: COMMAND START\n", deviceID);
 
 		cmdFuncName = cmdConValue = NULL;
 		for(i=0; i<pDeviceInfo->deviceFuncCount; i++)
@@ -164,16 +164,16 @@ void *Grib_ContorolThread(void* threadArg)
 
 		if(cmdFuncName == NULL)
 		{
-			GRIB_LOGD("# %s-CTR>: IN-VALID Ex RESOURCE ID: %s\n", deviceID, resParam.xM2M_PrntID);
+			GRIB_LOGD("# %s-CTR<: IN-VALID Ex RESOURCE ID: %s\n", deviceID, resParam.xM2M_PrntID);
 			continue;
 		}
 
 		cmdConValue = resParam.xM2M_Content;
 		if(iDBG)
 		{
-			GRIB_LOGD("# %s-CTR>: COMMAND PID : %s\n", deviceID, resParam.xM2M_PrntID);
-			GRIB_LOGD("# %s-CTR>: COMMAND RID : %s\n", deviceID, resParam.xM2M_RsrcID);
-			GRIB_LOGD("# %s-CTR>: COMMAND CON : %s\n", deviceID, resParam.xM2M_Content);
+			GRIB_LOGD("# %s-CTR<: COMMAND PID : %s\n", deviceID, resParam.xM2M_PrntID);
+			GRIB_LOGD("# %s-CTR<: COMMAND RID : %s\n", deviceID, resParam.xM2M_RsrcID);
+			GRIB_LOGD("# %s-CTR<: COMMAND CON : %s\n", deviceID, resParam.xM2M_Content);
 		}
 
 		while(TRUE)
@@ -184,7 +184,7 @@ void *Grib_ContorolThread(void* threadArg)
 			checkStatus = pThreadInfo->reportThreadStatus;
 			pthread_mutex_unlock(&pThreadInfo->threadMutex);
 
-			if(iDBG)GRIB_LOGD("# %s-CTR>: BLE CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
+			if(iDBG)GRIB_LOGD("# %s-CTR<: BLE CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
 
 			if(checkStatus == THREAD_STATUS_USE_BLE)
 			{//shbaek: Wait for Report Thread.
@@ -202,7 +202,7 @@ void *Grib_ContorolThread(void* threadArg)
 
 SEND_BLE:
 		// TODO: shbaek: SEND COMMAND USE BLE
-		if(iDBG)GRIB_LOGD("# %s-CTR>: SEND COMMAND USE BLE\n", deviceID);
+		if(iDBG)GRIB_LOGD("# %s-CTR<: SEND COMMAND USE BLE\n", deviceID);
 
 		STRINIT(bleSendBuff, sizeof(bleSendBuff));
 		STRINIT(bleRecvBuff, sizeof(bleRecvBuff));
@@ -211,14 +211,14 @@ SEND_BLE:
 		{
 			sysTimer = time(NULL);
 			sysTime  = localtime(&sysTimer);
-			GRIB_LOGD("# %s-CTR>: SEND TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+			GRIB_LOGD("# %s-CTR<: SEND TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
 		}
 
 		//2 shbaek: WAIT FOR BLE RE-USE
 		SLEEP(GRIB_WAIT_BLE_REUSE_TIME);
 
-		if(iDBG)GRIB_LOGD("# %s-CTR>: COMMAND FUNC: %s\n", deviceID, cmdFuncName);
-		if(iDBG)GRIB_LOGD("# %s-CTR>: COMMAND CON : %s\n", deviceID, cmdConValue);
+		if(iDBG)GRIB_LOGD("# %s-CTR<: COMMAND FUNC: %s\n", deviceID, cmdFuncName);
+		if(iDBG)GRIB_LOGD("# %s-CTR<: COMMAND CON : %s\n", deviceID, cmdConValue);
 
 		iRes = Grib_BleSetFuncData(pDeviceInfo->deviceAddr, deviceID, cmdFuncName, cmdConValue, bleRecvBuff);
 
@@ -226,7 +226,7 @@ SEND_BLE:
 		{
 			sysTimer = time(NULL);
 			sysTime  = localtime(&sysTimer);
-			GRIB_LOGD("# %s-CTR>: RECV TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+			GRIB_LOGD("# %s-CTR<: RECV TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
 		}
 
 		if(iRes == GRIB_DONE)
@@ -236,7 +236,7 @@ SEND_BLE:
 			pRes = Grib_Split(bleRecvBuff, GRIB_LN, 0);
 			if( (pRes == NULL) || (STRNCMP(pRes, BLE_RESPONSE_STR_ERROR, STRLEN(BLE_RESPONSE_STR_ERROR))==0) )
 			{//3 shbaek: RECV BLE ERROR MSG
-				GRIB_LOGD("# %s-CTR>: RES ERROR RE-TRY CHANCE: %d\n", deviceID, iTry+1);
+				GRIB_LOGD("# %s-CTR<: RES ERROR RE-TRY CHANCE: %d\n", deviceID, iTry+1);
 				if(iTry < 3)
 				{
 					iTry++;
@@ -245,17 +245,17 @@ SEND_BLE:
 				}
 				else
 				{
-					GRIB_LOGD("# %s-CTR>: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
-					GRIB_LOGD("# %s-CTR>: #####       CRITICAL ERROR          #####\n", deviceID);
-					GRIB_LOGD("# %s-CTR>: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
+					GRIB_LOGD("# %s-CTR<: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
+					GRIB_LOGD("# %s-CTR<: #####       CRITICAL ERROR          #####\n", deviceID);
+					GRIB_LOGD("# %s-CTR<: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
 				}
 			}
 
-			GRIB_LOGD("# %s-CTR>: %s SET %s: %s\n", deviceID, cmdFuncName, cmdConValue, pRes);
+			GRIB_LOGD("# %s-CTR<: %s SET %s: %s\n", deviceID, cmdFuncName, cmdConValue, pRes);
 		}
 		else
 		{//3 shbaek: BLE LOCAL ERROR
-			GRIB_LOGD("# %s-CTR>: BLE ERROR RE-TRY CHANCE: %d\n", deviceID, iTry+1);
+			GRIB_LOGD("# %s-CTR<: BLE ERROR RE-TRY CHANCE: %d\n", deviceID, iTry+1);
 			if(iTry < 3)
 			{
 				iTry++;
@@ -264,13 +264,13 @@ SEND_BLE:
 			}
 			else
 			{
-				GRIB_LOGD("# %s-CTR>: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
-				GRIB_LOGD("# %s-CTR>: #####       CRITICAL ERROR          #####\n", deviceID);
-				GRIB_LOGD("# %s-CTR>: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
+				GRIB_LOGD("# %s-CTR<: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
+				GRIB_LOGD("# %s-CTR<: #####       CRITICAL ERROR          #####\n", deviceID);
+				GRIB_LOGD("# %s-CTR<: ##### ##### ##### ##### ##### ##### #####\n", deviceID);
 			}
 		}
 
-		GRIB_LOGD("# %s-CTR>: THREAD_STATUS_NEED_ANSWER !!!\n", deviceID);
+		GRIB_LOGD("# %s-CTR<: THREAD_STATUS_NEED_ANSWER !!!\n", deviceID);
 
 		pthread_mutex_lock(&pThreadInfo->threadMutex);
 		pThreadInfo->controlThreadStatus = THREAD_STATUS_NEED_ANSWER;
@@ -326,7 +326,7 @@ void* Grib_ReportThread(void* threadArg)
 		iCycleTime = GRIB_DEFAULT_REPORT_CYCLE;
 	}
 
-//	GRIB_LOGD("# %s-RPT<: REPORT THREAD START\n", deviceID);
+//	GRIB_LOGD("# %s-RPT>: REPORT THREAD START\n", deviceID);
 
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ResParam));
@@ -340,7 +340,7 @@ void* Grib_ReportThread(void* threadArg)
 #ifdef FEATURE_CAS
 	if(STRLEN(pThreadInfo->authKey)<=1)
 	{
-		GRIB_LOGD("# %s-RPT<: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
+		GRIB_LOGD("# %s-RPT>: AUTH KEY IN-VALID ERROR !!!\n\n", deviceID);
 		return threadArg;
 	}
 	reqParam.authKey = pThreadInfo->authKey;
@@ -357,11 +357,11 @@ void* Grib_ReportThread(void* threadArg)
 			pFuncInfo = ppFuncInfo[i];
 			pFuncName = pFuncInfo->funcName;
 			useReport = FUNC_ATTR_CHECK_REPORT(pFuncInfo->funcAttr);
-			if(iDBG)GRIB_LOGD("# %s-RPT<: %s USE REPORT: %s[%d]\n", deviceID, pFuncName, GRIB_BOOL_TO_STR(useReport), pFuncInfo->funcAttr);
+			if(iDBG)GRIB_LOGD("# %s-RPT>: %s USE REPORT: %s[%d]\n", deviceID, pFuncName, GRIB_BOOL_TO_STR(useReport), pFuncInfo->funcAttr);
 
 			if(useReport == FALSE)
 			{//3 shbaek: Attribute Have Not Reporting Flag.
-				GRIB_LOGD("# %s-RPT<: %s NEED NOT REPORTING\n", deviceID, pFuncName);
+				GRIB_LOGD("# %s-RPT>: %s NEED NOT REPORTING\n", deviceID, pFuncName);
 				continue;
 			}
 
@@ -373,7 +373,7 @@ void* Grib_ReportThread(void* threadArg)
 				checkStatus = pThreadInfo->controlThreadStatus;
 				pthread_mutex_unlock(&pThreadInfo->threadMutex);
 
-				if(iDBG)GRIB_LOGD("# %s-RPT<: BLE CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
+				if(iDBG)GRIB_LOGD("# %s-RPT>: BLE CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
 
 				if(checkStatus == THREAD_STATUS_USE_BLE)
 				{//shbaek: Wait for Control Thread.
@@ -396,7 +396,7 @@ void* Grib_ReportThread(void* threadArg)
 			{
 				sysTimer = time(NULL);
 				sysTime  = localtime(&sysTimer);
-				GRIB_LOGD("# %s-RPT<: SEND TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+				GRIB_LOGD("# %s-RPT>: SEND TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
 			}
 
 			//2 shbaek: WAIT FOR BLE RE-USE
@@ -412,22 +412,22 @@ void* Grib_ReportThread(void* threadArg)
 			{
 				sysTimer = time(NULL);
 				sysTime  = localtime(&sysTimer);
-				GRIB_LOGD("# %s-RPT<: RECV TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+				GRIB_LOGD("# %s-RPT>: RECV TIME: %02d:%02d:%02d\n", deviceID, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
 			}
 
 			if(iRes != GRIB_DONE)
 			{
-				GRIB_LOGD("# %s-RPT<: %s GET STATUS FAIL\n", deviceID, pFuncName);
+				GRIB_LOGD("# %s-RPT>: %s GET STATUS FAIL\n", deviceID, pFuncName);
 				continue;
 			}
 
 			pRes = Grib_Split(bleRecvBuff, GRIB_LN, 0);
 			if( (pRes == NULL) || (STRNCMP(pRes, GRIB_STR_ERROR, STRLEN(GRIB_STR_ERROR))==0) )
 			{
-				GRIB_LOGD("# %s-RPT<: GET %s STATUS ERROR\n", deviceID, pFuncName);
+				GRIB_LOGD("# %s-RPT>: GET %s STATUS ERROR\n", deviceID, pFuncName);
 				continue;
 			}
-			if(iDBG)GRIB_LOGD("# %s-RPT<: GET %s STATUS: %s\n", deviceID, pFuncName, pRes);
+			if(iDBG)GRIB_LOGD("# %s-RPT>: GET %s STATUS: %s\n", deviceID, pFuncName, pRes);
 
 			STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
 			SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s/%s", deviceID, pFuncName, ONEM2M_URI_CONTENT_STATUS);
@@ -437,14 +437,14 @@ void* Grib_ReportThread(void* threadArg)
 
 			iRes = Grib_ContentInstanceCreate(&reqParam, &resParam);
 
-			if(iRes == GRIB_DONE)GRIB_LOGD("# %s-RPT<: REPORT DONE\n", deviceID);
+			if(iRes == GRIB_DONE)GRIB_LOGD("# %s-RPT>: REPORT DONE ...\n", deviceID);
 			if(iRes == GRIB_ERROR)
 			{
-				GRIB_LOGD("# %s-RPT<: REPORT ERROR !!!\n", deviceID);
+				GRIB_LOGD("# %s-RPT>: REPORT ERROR !!!\n", deviceID);
 
 				if(resParam.http_ResNum == HTTP_STATUS_CODE_UNAUTHORIZED)
 				{//shbaek: Change Auth Key
-					GRIB_LOGD("# %s-RPT<: CHANGE AUTH KEY !!!\n", deviceID);
+					GRIB_LOGD("# %s-RPT>: CHANGE AUTH KEY !!!\n", deviceID);
 					Grib_CasGetAuthKey(deviceID, pThreadInfo->authKey);
 					reqParam.authKey = pThreadInfo->authKey;
 				}
@@ -461,11 +461,11 @@ void* Grib_ReportThread(void* threadArg)
 			checkStatus = pThreadInfo->controlThreadStatus;
 			pthread_mutex_unlock(&pThreadInfo->threadMutex);
 
-			if(iDBG)GRIB_LOGD("# %s-RPT<: DELAY CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
+			if(iDBG)GRIB_LOGD("# %s-RPT>: DELAY CHECK STATUS: %s[%d]\n", deviceID, Grib_ThreadStatusToStr(checkStatus), checkStatus);
 
 			if(checkStatus == THREAD_STATUS_NEED_ANSWER)
 			{//shbaek: Answer Me Now
-				GRIB_LOGD("# %s-RPT<: ANSWER ME NOW PLEASE ...\n", deviceID);
+				GRIB_LOGD("# %s-RPT>: ANSWER ME NOW PLEASE ...\n", deviceID);
 
 				//shbaek: Init Answer Flag
 				pthread_mutex_lock(&pThreadInfo->threadMutex);
@@ -528,7 +528,7 @@ void* Grib_ResetThread(void* threadArg)
 
 			for(int i=30; 0<i; i--)
 			{
-				GRIB_LOGD("# RESET-THREAD: RESET COUNT: %d \n", i);
+				GRIB_LOGD("# RESET-THREAD: COUNT DOWN: %d \n", i);
 				SLEEP(1);
 			}
 
@@ -583,7 +583,6 @@ void* Grib_HubThread(void* threadArg)
 	MEMSET(&hubResParam, GRIB_INIT, sizeof(OneM2M_ResParam));
 
 	STRNCPY(hubReqParam.xM2M_Origin, deviceID, STRLEN(deviceID));
-
 
 #ifdef FEATURE_CAS
 	iRes = Grib_CasGetAuthKey(deviceID, pAuthKey);

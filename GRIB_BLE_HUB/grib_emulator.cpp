@@ -156,6 +156,10 @@ void GribEmul_MenuAuth(int argc, char **argv)
 		{
 			iRes = Grib_AuthDeviceRegi(authList[i].deviceID, authList[i].devicePW);
 		}
+		else
+		{
+		}
+
 		if(iRes != GRIB_DONE)iFailCount++;
 
 		GRIB_LOGD("# LIST[%d/%d] REGI: %s : %s \n\n", i, iTotal-1, authList[i].deviceID, iRes==GRIB_DONE?"DONE":"FAIL");

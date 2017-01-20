@@ -1017,7 +1017,7 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 	iRes = Grib_OneM2MSendMsg(pReqParam, pResParam);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: INSTANCE CREATE ERROR: %s [%d]\n", pReqParam->xM2M_Origin, pResParam->http_ResMsg, pResParam->http_ResNum);
+		GRIB_LOGD("# %s-xM2M: INSTANCE CREATE ERROR: %s [%d]\n", pReqParam->xM2M_Origin, pResParam->http_ResMsg, pResParam->http_ResNum);
 		return GRIB_ERROR;
 	}
 
@@ -1031,7 +1031,7 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 	iRes = Grib_OneM2MResParser(pResParam);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# RESPONSE PARSING ERROR\n");
+		GRIB_LOGD("# %s-xM2M: RESPONSE PARSING ERROR\n", pReqParam->xM2M_Origin);
 		return GRIB_ERROR;
 	}
 
@@ -1322,7 +1322,10 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	iRes = Grib_OneM2MSendMsg(pReqParam, pResParam);
 	if(iRes != GRIB_DONE)
 	{
-		if(pResParam->http_ResNum != HTTP_STATUS_CODE_REQUEST_TIME_OUT)GRIB_LOGD("# LONG POLLING ERROR\n");
+		if(pResParam->http_ResNum != HTTP_STATUS_CODE_REQUEST_TIME_OUT)
+		{
+			GRIB_LOGD("# %s-xM2M: LONG POLLING ERROR\n", pReqParam->xM2M_Origin);
+		}
 		return GRIB_ERROR;
 	}
 
@@ -1336,7 +1339,7 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	iRes = Grib_LongPollingResParser(pResParam);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# RESPONSE PARSING ERROR\n");
+		GRIB_LOGD("# %s-xM2M: RESPONSE PARSING ERROR\n", pReqParam->xM2M_Origin);
 		return GRIB_ERROR;
 	}
 	if(iDBG)

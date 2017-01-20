@@ -206,22 +206,22 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 
 	if(iDBG)
 	{
-		GRIB_LOGD("# %s-BLE : DEVICE ADDR   : %s\n", pipeFileName, deviceAddr);
-		GRIB_LOGD("# %s-BLE : PIPE FILE     : %s\n", pipeFileName, pipeFileName);
+		GRIB_LOGD("# %s-BLE>: DEVICE ADDR   : %s\n", pipeFileName, deviceAddr);
+		GRIB_LOGD("# %s-BLE>: PIPE FILE     : %s\n", pipeFileName, pipeFileName);
 	}
-	GRIB_LOGD("# %s-BLE : SEND MSG[%03d]: %s\n", pipeFileName, STRLEN(sendBuff), sendBuff);
+	GRIB_LOGD("# %s-BLE>: %s\n", pipeFileName, sendBuff);
 
 	processID = fork();
 	if(processID == GRIB_ERROR)
 	{
-		GRIB_LOGD("# %s-BLE : PROCESS FORK FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		GRIB_LOGD("# %s-BLE>: PROCESS FORK FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
 		return GRIB_ERROR;
 	}
-	if(iDBG)GRIB_LOGD("# %s-BLE : FORK PROCESS ID: %d\n", pipeFileName, processID);
+	if(iDBG)GRIB_LOGD("# %s-BLE>: FORK PROCESS ID: %d\n", pipeFileName, processID);
 
 	STRINIT(pipeFilePath, sizeof(pipeFilePath));
 	SNPRINTF(pipeFilePath, sizeof(pipeFilePath), "%s/%s", BLE_FILE_PATH_PIPE_ROOT, pipeFileName);
-	if(iDBG)GRIB_LOGD("# %s-BLE : PIPE FILE PATH: %s\n", pipeFileName, pipeFilePath);
+	if(iDBG)GRIB_LOGD("# %s-BLE>: PIPE FILE PATH: %s\n", pipeFileName, pipeFilePath);
 
 	switch(processID)
 	{
@@ -323,7 +323,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 		}
 	}
 
-	GRIB_LOGD("# %s-BLE : READ MSG[%03d]: %s\n", pipeFileName, STRLEN(recvBuff), recvBuff);
+	GRIB_LOGD("# %s-BLE<: %s\n", pipeFileName, recvBuff);
 
 	if(STRNCASECMP(recvBuff, BLE_RESPONSE_STR_ERROR, STRLEN(BLE_RESPONSE_STR_ERROR)) == 0)
 	{
@@ -339,12 +339,12 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 		bleLogInfo.bleRecvMsg	= recvBuff;
 		bleLogInfo.bleErrorMsg	= pError;
 
-		GRIB_LOGD("# %s-BLE : # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+		GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 
 		Grib_BleTombStone(&bleLogInfo);
 
-		GRIB_LOGD("# %s-BLE : # ERROR MSG : %s[%d]\n", pipeFileName, pError, iError);
-		GRIB_LOGD("# %s-BLE : # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+		GRIB_LOGD("# %s-BLE<: # ERROR MSG : %s[%d]\n", pipeFileName, pError, iError);
+		GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 
 		if(iError == BLE_ERROR_CODE_CRITICAL)
 		{//3 shbaek: HCI DRIVER RESET
