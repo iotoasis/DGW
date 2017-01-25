@@ -23,4 +23,12 @@
 ## Sensor/Device
  Sensor/Device의 HW는 Aduino 계열과 Raspberry를 사용한다.
  Gateway와 로컬 통신중 BLE에서는 Sensor/Device가 Slave Mode로 동작하여, 일정 주기로 데이터를 전달한다.
+
+
+## Downloads
+ - [Latest Release](https://github.com/iotoasis/DGW/releases/)
+
  
+## License
+Licensed under the BSD License, Version 2.0
+<br>
