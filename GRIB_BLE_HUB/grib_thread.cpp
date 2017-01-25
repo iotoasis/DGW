@@ -508,7 +508,7 @@ void* Grib_ResetThread(void* threadArg)
 		return NULL;
 	}
 
-	if( (pConfigInfo->resetTimeHour!=0) && (pConfigInfo->resetTimeHour<24) )
+	if( (pConfigInfo->resetTimeHour!=0) && (pConfigInfo->resetTimeHour<=24) )
 	{
 		intervalTime = pConfigInfo->resetTimeHour;		
 	}
