@@ -2,6 +2,7 @@
 
 Gateway를 사용하기 위한 설정과 명령등에 대해 설명한다.
 
+
 ## Gateway(Hub) 설명
 
 Hub 프로그램은 기본적으로 Application 형태로 탑재된다.<br>
@@ -20,10 +21,13 @@ Bluetooth 초기화와 장치 검색은 HCI Tool를 사용한다.<br>
 Hub Program을 구동시키면 Config File을 읽어와서 설정한다.<br>
 Config File 위치: “HUB_DIRECTORY”/config/grib.config<br>
 
+<br>
+
 Config File Item List<br>
-ITEM											 | DESCRIPTION							 							| COMMENT
--------------------------- | ---------------------------------------| -----------------------
-HUB_ID										 | Hub ID                              		| 
+
+ITEM                       | DESCRIPTION                             | COMMENT 
+-------------------------- | --------------------------------------- | -----------------------
+HUB_ID | Hub ID | 
 PLATFORM_SERVER_IP				 | One M2M 서버 IP 주소                   | 
 PLATFORM_SERVER_PORT			 | One M2M 서버 Port 번호                 | 
 AUTH_SERVER_IP						 | 인증 서버 IP 주소                      | 
@@ -50,10 +54,17 @@ GRIB_TOMBSTONE_HTTP				 | HTTP 에러 발생시 Log File 저장 여부    | 값:
 Console 입력은 Program이 위치한 Directory에서 실행한다.<br>
 Default Directory: /home/pi/20_GRIB_HUB/<br>
 <br>
-./grib_hci init: BLE(HCI 인터페이스)를 초기화한다.<br>
-./grib_hci scan: 주변 BLE 디바이스를 검색한다.<br>
-./grib_hub regi "BLE ADDR": 해당 BLE 디바이스를 Hub에 등록한다.<br>
-./grib_hub deregi "DEVICE ID": 해당 디바이스를 Hub에서 삭제한다.<br>
-./grib_hub config: 현재 Config 정보를 출력한다.<br>
-./grib_hub hub: Hub 프로그램을 실행한다.<br>
 
+Command List<br>
+
+COMMAND                       | DESCRIPTION 
+----------------------------- | --------------------------------------- 
+./grib_hci init               | BLE(HCI 인터페이스)를 초기화
+./grib_hci scan               | 주변 BLE 디바이스를 검색
+./grib_hub db all             | Hub에 등록된 디바이스 정보를 출력
+./grib_hub regi "BLE ADDR"    | 해당 BLE 디바이스를 Hub에 등록
+./grib_hub deregi "DEVICE ID" | 해당 디바이스를 Hub에서 삭제
+./grib_hub config             | 현재 Config 정보를 출력
+./grib_hub hub                | Hub 프로그램을 실행
+
+<br>
