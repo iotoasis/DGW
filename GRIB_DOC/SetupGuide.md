@@ -18,7 +18,7 @@ Gateway를 사용하기 위한 OS 설치 방법등에 대해 설명한다.
 ※ Aduino 공식 사이트: [https://www.arduino.cc](https://www.arduino.cc/)
 
 
-## Guide
+## OS 설치 Guide
 
 - Raspbian OS 이미지를 Download한다.<br>
  Raspberry 공식 다운로드 사이트: [https://www.raspberrypi.org/downloads](https://www.raspberrypi.org/downloads/)
