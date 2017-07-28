@@ -27,11 +27,11 @@ shbaek: Include File
 #ifdef FEATURE_CAS
 #include "grib_cas.h"
 #endif
-
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-
+#define WATCHDOG_STATUS_NONE						0
+#define WATCHDOG_STATUS_DONE						1
 
 typedef struct
 {
@@ -43,9 +43,11 @@ typedef struct
 
 	int controlThreadStatus;
 	int reportThreadStatus;
+	int bleContinualError;
+	int watchdogStatus;
 
 #ifdef FEATURE_CAS
-	char authKey[CAS_AUTH_KEY_SIZE];
+	char authKey[GRIB_MAX_SIZE_AUTH_KEY];
 #endif
 
 	Grib_DbRowDeviceInfo*  pRowDeviceInfo;
@@ -64,10 +66,12 @@ typedef struct
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-int   Grib_ThreadStart(void);
 int   Grib_SetThreadConfig(void);
+
+//3 shbaek: BLE Thread
+int   Grib_ThreadStart(void);
 void* Grib_ReportThread(void* threadArg);
-void *Grib_ContorolThread(void* threadArg);
+void *Grib_ControlThread(void* threadArg);
 
 
 

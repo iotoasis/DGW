@@ -1,29 +1,16 @@
 #!/bin/bash
 
 # ########## ########## ########## ########## ########## ########## ########## ##########
-# shbaek: PROGRAM CONFIG
-# ########## ########## ########## ########## ########## ########## ########## ##########
-GRIB_HUB_PATH=/home/pi/20_GRIB_HUB
-GRIB_INC_FILE=00_GribColor.sh
-GRIB_HUB_NAME=grib_hub
-GRIB_HCI_NAME=grib_hci
-GRIB_EMUL_NAME=grib_emulator
-
-# ########## ########## ########## ########## ########## ########## ########## ##########
-# shbaek: DEPENDENCY
-# ########## ########## ########## ########## ########## ########## ########## ##########
-CAS_LIB_PATH=${GRIB_HUB_PATH}/libs/cas_package
-export LD_LIBRARY_PATH=/usr/lib:$CAS_LIB_PATH:$LD_LIBRARY_PATH
-#echo ${LD_LIBRARY_PATH}
-
-# ########## ########## ########## ########## ########## ########## ########## ##########
 # shbaek: INCLUDE
 # ########## ########## ########## ########## ########## ########## ########## ##########
-if [ -f "${GRIB_INC_FILE}" ] ; then
-	source ${GRIB_HUB_PATH}/${GRIB_INC_FILE}
+GRIB_ENV_FILE=grib_env.sh
+
+if [ -f "./${GRIB_ENV_FILE}" ] ; then
+	source ./${GRIB_ENV_FILE}
 else
 	echo -e
-	echo "NOT FOUND " ${GRIB_INC_FILE} "!!!"
+	echo "NOT FOUND ${GRIB_ENV_FILE} FILE!!!"
+	exit
 fi
 
 # ########## ########## ########## ########## ########## ########## ########## ##########
@@ -35,30 +22,28 @@ if [ "make" == "$1" ] ; then
 		make clean
 		make all
 	else
-		make hub_clean
-		make hub
+		make ble_hub_clean
+		make ble_hub
 	fi
 
-	if [ -f "${GRIB_HUB_NAME}" ] ; then
+	if [ -f "${GRIB_BLE_HUB_NAME}" ] ; then
 		echo -e
-		echo -e "# ${COLOR_GREEN_BOLD}"${GRIB_HUB_NAME} MAKE DONE ..."${COLOR_END}"
+		echo -e "# ${COLOR_GREEN_BOLD}"${GRIB_BLE_HUB_NAME} MAKE DONE ..."${COLOR_END}"
 		echo -e
-		ldd ./${GRIB_HUB_NAME}
+		ldd ./${GRIB_BLE_HUB_NAME}
 		echo -e
 	else
 		echo -e
-		echo -e "# ${COLOR_RED_BOLD}"${GRIB_HUB_NAME} MAKE FAIL !!!"${COLOR_END}"
+		echo -e "# ${COLOR_RED_BOLD}"${GRIB_BLE_HUB_NAME} MAKE FAIL !!!"${COLOR_END}"
 		echo -e
 	fi
 
+	echo -e
 	exit
 fi
 
 if [ "kill" == "$1" ] ; then
-	echo -e "# ${COLOR_RED_BOLD}"${GRIB_HUB_NAME} PROCESS KILL !!!"${COLOR_END}"
-	ps -aux | grep ${GRIB_HUB_NAME}
-	sudo "$1" -9 `pidof ${GRIB_HUB_NAME}`
-	echo -e
+	kill_grib_porc
 	exit
 fi
 
@@ -77,6 +62,16 @@ if [ "ble" == "$1" ] ; then
 		"sudo" ./${GRIB_HCI_NAME} "$2" "$3"
 		echo -e
 		exit
+	elif [ "adv" == "$2" ] ; then
+		clear
+		"sudo" ./${GRIB_HCI_NAME} "$2" "$3"
+		echo -e
+		exit
+	elif [ "linno" == "$2" ] ; then
+		clear
+		"sudo" ./${GRIB_HCI_NAME} "$2" "$3"
+		echo -e
+		exit
 	fi
 fi
 
@@ -90,13 +85,33 @@ if [ "emulator" == "$1" ] ; then
 fi
 
 # ########## ########## ########## ########## ########## ########## ########## ##########
-# shbaek: ONLY HUB
+# shbaek: ONLY REBOOT
 # ########## ########## ########## ########## ########## ########## ########## ##########
-if [ -f "${GRIB_HUB_PATH}/${GRIB_HUB_NAME}" ] ; then
+if [ "reboot" == "$1" ] ; then
+	./${GRIB_REBOOT_NAME} "$2" "$3" "$4"
 	echo -e
-else
-	echo -e
-	echo -e "# ${COLOR_RED_BOLD}"NOT FOUND ${GRIB_HUB_NAME} PROGRAM !!!"${COLOR_END}"
+	exit
+fi
+
+# ########## ########## ########## ########## ########## ########## ########## ##########
+# shbaek: ONLY BLE HUB
+# ########## ########## ########## ########## ########## ########## ########## ##########
+
+if [ "hub" == "$1" ] ; then
+	if [ -f "./${GRIB_BLE_HUB_NAME}" ] ; then
+		del_sys_log_file
+		del_certi_file
+		echo -e
+		echo -e "# RUN PROGRAM :" "${COLOR_GREEN_BOLD}" "BLE HUB ..." "${COLOR_END}"
+		echo -e
+		./${GRIB_REBOOT_NAME} "config" &
+		./${GRIB_BLE_HUB_NAME} "hub" &
+	else
+		echo -e
+		echo -e "# ${COLOR_RED_BOLD}" "NOT FOUND ${GRIB_BLE_HUB_NAME} PROGRAM !!!" "${COLOR_END}"
+		echo -e
+	fi
+
 	echo -e
 	exit
 fi
@@ -104,6 +119,16 @@ fi
 # ########## ########## ########## ########## ########## ########## ########## ##########
 # shbaek: HUB ANOTHER
 # ########## ########## ########## ########## ########## ########## ########## ##########
-./${GRIB_HUB_NAME} "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+if [ -f "./${GRIB_BLE_HUB_NAME}" ] ; then
+	echo -e
+else
+	echo -e
+	echo -e "# ${COLOR_RED_BOLD}"NOT FOUND ${GRIB_BLE_HUB_NAME} PROGRAM !!!"${COLOR_END}"
+	echo -e
+	exit
+fi
+
+./${GRIB_BLE_HUB_NAME} "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
 echo -e
 exit
+

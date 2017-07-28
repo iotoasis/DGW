@@ -18,13 +18,10 @@ shbaek: Include File
 #include <ctime>
 #include <cerrno>
 
-#include "grib_test.h"
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"161205_ONE_M2M_v2.0"
-#define GRIB_HUB							"grib_hub"
-#define GRIB_SCRIPT						"grib.sh"
+#define GRIB_HUB_VERSION					"170421_BLE_HUB_3rd"
 
 #ifndef FALSE
 #define FALSE								0
@@ -47,31 +44,31 @@ shbaek: Define Basic Keyword
 #endif
 
 #ifndef __FILE_PATH__
-#define __FILE_PATH__		__FILE__
+#define __FILE_PATH__						__FILE__
 #endif
 
 #ifndef __FILE_NAME__
-#define __FILE_NAME__ 		(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/')+1 : __FILE__)
+#define __FILE_NAME__ 						(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/')+1 : __FILE__)
 #endif
 
 #ifndef __FUNC__
-#define __FUNC__			__func__
+#define __FUNC__							__func__
 #endif
 
 #ifndef __FUNC_NAME__
-#define __FUNC_NAME__		__func__
+#define __FUNC_NAME__						__func__
 #endif
 
 #ifndef SIZE_0
-#define SIZE_0				0
+#define SIZE_0								0
 #endif
 
 #ifndef SIZE_1K
-#define SIZE_1K				(1024)
+#define SIZE_1K								(1024)
 #endif
 
 #ifndef SIZE_1M
-#define SIZE_1M				(SIZE_1K*SIZE_1K)
+#define SIZE_1M								(SIZE_1K*SIZE_1K)
 #endif
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
@@ -87,10 +84,16 @@ shbaek: Define Constant
 #define GRIB_DONE										GRIB_SUCCESS
 #define GRIB_ERROR										GRIB_FAIL
 
+#define GRIB_PROGRAM_REBOOT							"grib_reboot"
+#define GRIB_PROGRAM_HCI								"grib_hci"
+#define GRIB_PROGRAM_BLE_HUB							"grib_ble_hub"
+#define GRIB_PROGRAM_GATTTOOL							"gatttool"
+
 #define GRIB_SPACE										' '
 #define GRIB_TAB										'\t'
 #define GRIB_HASH										'#'
 #define GRIB_COLON										':'
+#define GRIB_STR_COLON									":"
 #define GRIB_COMMA										','
 #define GRIB_CR											'\r'
 #define GRIB_LN											'\n'
@@ -100,6 +103,9 @@ shbaek: Define Constant
 
 #define GRIB_STR_OK									"OK"
 #define GRIB_STR_ERROR									"ERROR"
+#define GRIB_STR_NOT_USED								"NOT_USED"
+
+#define GRIB_STR_TIME_FORMAT 							"%04d%02d%02dT%02d%02d%02d"
 
 #define GRIB_BOOL_TO_STR(iValue)						(iValue==TRUE?"TRUE":iValue==FALSE?"FALSE":"INVALID")
 #define GRIB_ONOFF_TO_STR(iValue)						(iValue==ON?"ON":iValue==OFF?"OFF":"INVALID")
@@ -119,6 +125,11 @@ shbaek: Define Constant
 #define GRIB_MAX_SIZE_LONG							512
 #define GRIB_MAX_SIZE_DLONG							1024
 
+#define GRIB_MAX_SIZE_TIME_STR						16
+#define GRIB_MAX_SIZE_IP_STR							GRIB_MAX_SIZE_BRIEF
+#define GRIB_MAX_SIZE_URI								SIZE_1K
+#define GRIB_MAX_SIZE_AUTH_KEY						128 //shbaek: Just In Case ...
+
 #define DEVICE_MAX_COUNT_FUNC							99
 #define DEVICE_MAX_SIZE_ID							GRIB_MAX_SIZE_SHORT
 #define DEVICE_MAX_SIZE_ADDR							GRIB_MAX_SIZE_BRIEF
@@ -128,8 +139,9 @@ shbaek: Define Constant
 #define DEVICE_MAX_SIZE_FUNC_NAME						GRIB_MAX_SIZE_SHORT
 #define DEVICE_MAX_SIZE_EX_RSRCID						GRIB_MAX_SIZE_SHORT
 
-
-#define GRIB_MAX_SIZE_IP_STR							GRIB_MAX_SIZE_BRIEF
+#define GRIB_DEFAULT_AUTH_KEY							"GRIB_DEFAULT_KEY"
+#define GRIB_1LINE_DASH			"# ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n"
+#define GRIB_1LINE_SHARP			"# ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####\n"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: for Readability
@@ -254,7 +266,7 @@ typedef enum
 	GRIB_CMD_ARG1		= 3,
 	GRIB_CMD_ARG2		= 4,	
 	GRIB_CMD_ARG3		= 5,
-	GRIB_CMD_ARG4		= 5,
+	GRIB_CMD_ARG4		= 6,
 	GRIB_CMD_MAX
 }Grib_CmdIndex;
 
@@ -295,31 +307,28 @@ typedef enum
 	BLE_ERROR_CODE_RECV_FAIL							= BLE_ERROR_CODE_BASE+4,
 	BLE_ERROR_CODE_INTERNAL							= BLE_ERROR_CODE_BASE+5,
 	BLE_ERROR_CODE_INTERACTIVE						= BLE_ERROR_CODE_BASE+6,
+	BLE_ERROR_CODE_GET_HANDLE							= BLE_ERROR_CODE_BASE+7,
+	BLE_ERROR_CODE_READ_TIMEOUT						= BLE_ERROR_CODE_BASE+8,
 	BLE_ERROR_CODE_CRITICAL							= BLE_ERROR_CODE_BASE+99,
 	BLE_ERROR_CODE_MAX
 }Grib_BleErrorCode;
 
 typedef struct tm TimeInfo;
+typedef unsigned char byte;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Feature
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define FEATURE_GRIB_BLE_EX							ON
 #define FEATURE_GRIB_LOG								ON
 
-#define FEATURE_IGNORE_DUPLICATE_ADDR				ON
-
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Constance Define - Feature Dependency
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define GRIB_DEFAULT_REPORT_CYCLE						30
 
-#if (FEATURE_GRIB_BLE_EX==ON)
+
 #define GRIB_WAIT_BLE_REUSE_TIME						1
 #define GRIB_CONTROL_FAIL_WAIT_TIME_SEC				5
-#else
-#define GRIB_WAIT_BLE_REUSE_TIME						10
-#define GRIB_CONTROL_FAIL_WAIT_TIME_SEC				10
-#endif
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: About Log

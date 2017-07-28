@@ -1,56 +1,54 @@
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#include "grib_sda.h"
+#include "grib_smd.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-int gDebugSda = FALSE;
+int gDebugSmd = FALSE;
 
-char gSdaServerIp[GRIB_MAX_SIZE_IP_STR+1];
-int  gSdaServerPort;
+char gSmdServerIp[GRIB_MAX_SIZE_IP_STR+1];
+int  gSmdServerPort;
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define __SDA_FUNC__
+#define __SMD_FUNC__
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-void Grib_SdaSetDebug(int iDebug)
+void Grib_SmdSetDebug(int iDebug)
 {
 	if(iDebug == TRUE)
 	{
-		gDebugSda = TRUE;
-		GRIB_LOGD("# SDA DEBUG: ON\n");
+		gDebugSmd = TRUE;
+		GRIB_LOGD("# SMD DEBUG: ON\n");
 	}
 
 	return;
 }
 
-int Grib_SdaSetServerConfig(void)
+int Grib_SmdSetServerConfig(void)
 {
-	//3 shbaek: [TBD] Load Config File
 	int iRes = GRIB_ERROR;
-	Grib_ConfigInfo pConfigInfo;
 
-	MEMSET(&pConfigInfo, 0x00, sizeof(Grib_ConfigInfo));
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
-	iRes = Grib_LoadConfig(&pConfigInfo);
-	if(iRes != GRIB_DONE)
+	pConfigInfo = Grib_GetConfigInfo();
+	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("# SDA SERVCER CONFIG: LOAD CONFIG ERROR !!!\n");
-		return iRes;
+		GRIB_LOGD("LOAD CONFIG ERROR !!!\n");
+		return GRIB_ERROR;
 	}
 
-	STRINIT(gSdaServerIp, sizeof(gSdaServerIp));
-	STRNCPY(gSdaServerIp, pConfigInfo.sdaServerIP, STRLEN(pConfigInfo.sdaServerIP));
+	STRINIT(gSmdServerIp, sizeof(gSmdServerIp));
+	STRNCPY(gSmdServerIp, pConfigInfo->smdServerIP, STRLEN(pConfigInfo->smdServerIP));
 
-	gSdaServerPort = pConfigInfo.sdaServerPort;
+	gSmdServerPort = pConfigInfo->smdServerPort;
 
-	GRIB_LOGD("# SDA SERVER CONFIG: %s:%d\n", gSdaServerIp, gSdaServerPort);
+	GRIB_LOGD("# SMD SERVER CONFIG: %s:%d\n", gSmdServerIp, gSmdServerPort);
 
 	return GRIB_SUCCESS;
 }
 
-int Grib_SdaDeviceInfoParser(char* recvBuff, char* deviceInfo)
+int Grib_SmdDeviceInfoParser(char* recvBuff, char* smdBuff)
 {
 	int i = 0;
 	int iRes = GRIB_ERROR;
@@ -66,13 +64,13 @@ int Grib_SdaDeviceInfoParser(char* recvBuff, char* deviceInfo)
 	
 	char* strResponse	= NULL;
 
-	if( (recvBuff==NULL) || (deviceInfo==NULL) )
+	if( (recvBuff==NULL) || (smdBuff==NULL) )
 	{
 		GRIB_LOGD("# PARAMETER IS NULL !!!\n");
 		return GRIB_ERROR;
 	}
 
-	STRINIT(deviceInfo, sizeof(deviceInfo));
+	STRINIT(smdBuff, sizeof(smdBuff));
 
 	strToken = GRIB_CRLN;
 	strResponse = STRDUP(recvBuff);
@@ -127,9 +125,9 @@ int Grib_SdaDeviceInfoParser(char* recvBuff, char* deviceInfo)
 			}
 			strValueEnd[STRLEN(strEndTag)] = NULL;
 
-			STRNCPY(deviceInfo, strValue, STRLEN(strValue));
+			STRNCPY(smdBuff, strValue, STRLEN(strValue));
 			
-			if(iDBG)GRIB_LOGD("[%03d] LAST VALUE:[%s]\n", i, deviceInfo);
+			if(iDBG)GRIB_LOGD("[%03d] LAST VALUE:[%s]\n", i, smdBuff);
 			break;//3 shbaek: Search More? break -> continue
 		}
 		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
@@ -142,36 +140,36 @@ FINAL:
 	return GRIB_DONE;
 }
 
-int Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo)
+int Grib_SmdGetDeviceInfo(char* deviceID, char* smdBuff)
 {
-	int iDBG = gDebugSda;
+	int iDBG = gDebugSmd;
 	int iRes = GRIB_ERROR;
 	
 	Grib_HttpMsgInfo httpMsg;
 
 	char sendBuff[HTTP_MAX_SIZE_SEND_MSG]	= {'\0', };
-	char recvBuff[SDA_MAX_DEVICE_INFO] 		= {'\0', };
+	char recvBuff[HTTP_MAX_SIZE_RECV_MSG] 	= {'\0', };
 
-	if( (deviceID==NULL) || (deviceInfo==NULL) )
+	if( (deviceID==NULL) || (smdBuff==NULL) )
 	{
 		GRIB_LOGD("# PARAMETER IS NULL !!!\n");
 		return GRIB_ERROR;
 	}
 
-	if( STRLEN(gSdaServerIp)==0 || (gSdaServerPort==0) )
+	if( STRLEN(gSmdServerIp)==0 || (gSmdServerPort==0) )
 	{
-		Grib_SdaSetServerConfig();
+		Grib_SmdSetServerConfig();
 	}
 
 	STRINIT(sendBuff, sizeof(sendBuff));
 	STRINIT(recvBuff, sizeof(recvBuff));
 
-	SNPRINTF(sendBuff, sizeof(sendBuff), SDA_GET_DEVICE_INFO_FORMAT_HTTP, 
-		deviceID, gSdaServerIp, gSdaServerPort);
+	SNPRINTF(sendBuff, sizeof(sendBuff), SMD_GET_DEVICE_INFO_FORMAT_HTTP, 
+		deviceID, gSmdServerIp, gSmdServerPort);
 
 	MEMSET(&httpMsg, 0x00, sizeof(Grib_HttpMsgInfo));
-	httpMsg.serverIP   = gSdaServerIp;
-	httpMsg.serverPort = gSdaServerPort;
+	httpMsg.serverIP   = gSmdServerIp;
+	httpMsg.serverPort = gSmdServerPort;
 	httpMsg.LABEL= deviceID;
 	httpMsg.sendBuff = sendBuff;
 	httpMsg.recvBuff = recvBuff;
@@ -179,7 +177,7 @@ int Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo)
 	if(iDBG)
 	{
 		GRIB_LOGD("----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n");
-		GRIB_LOGD("# SDA GET DEV INFO SEND[%d]:\n%s", STRLEN(sendBuff), sendBuff);
+		GRIB_LOGD("# SMD GET DEV INFO SEND[%d]:\n%s", STRLEN(sendBuff), sendBuff);
 		GRIB_LOGD("----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n");
 	}
 
@@ -193,7 +191,7 @@ int Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo)
 	if(iDBG)
 	{
 		GRIB_LOGD("----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n");
-		GRIB_LOGD("# SDA GET DEV INFO RECV[%d]:\n%s", STRLEN(recvBuff), recvBuff);
+		GRIB_LOGD("# SMD GET DEV INFO RECV[%d]:\n%s", STRLEN(recvBuff), recvBuff);
 		GRIB_LOGD("----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n");
 	}
 
@@ -206,8 +204,8 @@ int Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo)
 
 	if(iDBG)
 	{
-		GRIB_LOGD("# SDA REQ DEVICE ID : %s\n", httpMsg.LABEL);
-		GRIB_LOGD("# SDA RES STATUS MSG: %s [%d]\n", httpMsg.statusMsg, httpMsg.statusCode);	
+		GRIB_LOGD("# SMD REQ DEVICE ID : %s\n", httpMsg.LABEL);
+		GRIB_LOGD("# SMD RES STATUS MSG: %s [%d]\n", httpMsg.statusMsg, httpMsg.statusCode);	
 	}
 
 	if(httpMsg.statusCode != HTTP_STATUS_CODE_OK)
@@ -215,14 +213,14 @@ int Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo)
 		return GRIB_ERROR;
 	}
 
-	iRes = Grib_SdaDeviceInfoParser(httpMsg.recvBuff, deviceInfo);
+	iRes = Grib_SmdDeviceInfoParser(httpMsg.recvBuff, smdBuff);
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# DEVICE INFO PARSE ERROR !!!\n");
 		return iRes;
 	}
 
-	if(iDBG)GRIB_LOGD("# SDA DEVICE INFO[%d]:\n%s\n", STRLEN(deviceInfo), deviceInfo);
+	if(iDBG)GRIB_LOGD("# SMD DEVICE INFO[%d]:\n%s\n", STRLEN(smdBuff), smdBuff);
 
 	return 	iRes;
 }

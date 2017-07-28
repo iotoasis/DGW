@@ -1,24 +1,23 @@
-#ifndef __GRIB_SDA_H__
-#define __GRIB_SDA_H__
+#ifndef __GRIB_SMD_H__
+#define __GRIB_SMD_H__
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
 #include "grib_define.h"
-#include "grib_http.h"
+#include "grib_config.h"
 #include "grib_util.h"
+#include "grib_http.h"
 
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define SDA_MAX_DEVICE_INFO 										(HTTP_MAX_SIZE)
-
-#define SDA_GET_DEVICE_INFO_FORMAT_RAW							\
+#define SMD_GET_DEVICE_INFO_FORMAT_RAW							\
 		"GET http://%s:%d/sda/deviceinfo/deviceinfo?p=%s\r\n"
 
-#define SDA_GET_DEVICE_INFO_FORMAT_HTTP							\
+#define SMD_GET_DEVICE_INFO_FORMAT_HTTP							\
 		"GET /sda/deviceinfo/deviceinfo?p=%s HTTP/1.1\r\n"			\
 		"Host: %s:%d\r\n"											\
 		"Content-Type:" HTTP_CONTENT_TYPE_JSON "\r\n"				\
@@ -32,9 +31,9 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-void Grib_SdaSetDebug(int iDebug);
-int  Grib_SdaSetServerConfig(void);
+void Grib_SmdSetDebug(int iDebug);
+int  Grib_SmdSetServerConfig(void);
 
-int  Grib_SdaGetDeviceInfo(char* deviceID, char* deviceInfo);
+int  Grib_SmdGetDeviceInfo(char* deviceID, char* deviceInfo);
 
 #endif

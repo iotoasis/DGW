@@ -8,7 +8,7 @@
 
 #include "grib_define.h"
 #include "grib_util.h"
-//#include "grib_onem2m.h"
+#include "grib_config.h"
 
 #include "TrustNETCASCstk.h"
 #include "TrustNETCASClient.h"
@@ -17,8 +17,6 @@
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define CAS_LIB_DIR_PATH							"libs/cas_package"
-#define CAS_FIX_AUTH_KEY_SIZE						16 //shbaek: From UNet
-#define CAS_AUTH_KEY_SIZE							128 //shbaek: Just In Case ...
 
 #define CAS_SIGN_CERT_FILE_DIR 					"UNETsystem/TrustNETCAS/CertStorage/USER"
 #define CAS_SIGN_CERT_FILE_NAME 					"signCert.pem"

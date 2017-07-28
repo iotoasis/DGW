@@ -52,7 +52,10 @@ void Grib_HttpTombStone(Grib_HttpLogInfo* pLogInfo)
 												 sysTime->tm_year+1900, sysTime->tm_mon+1, sysTime->tm_mday,
 												 sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec, pLogInfo->httpSender);
 
-	GRIB_LOGD("# HTTP TOMBSTONE NAME: %s\n", pLogFilePath);
+	GRIB_LOGD("# %s-HTTP: # ##### ##### ##### ##### ##### ##### #####\n", pLogInfo->httpSender);
+	GRIB_LOGD("# %s-HTTP: # LOG NAME: %c[1;31m%s%c[0m\n", pLogInfo->httpSender, 27, pLogFilePath, 27);
+	GRIB_LOGD("# %s-HTTP: # LOG MSG : %c[1;31m%s%c[0m\n", pLogInfo->httpSender, 27, pLogInfo->httpErrMsg, 27);
+	GRIB_LOGD("# %s-HTTP: # ##### ##### ##### ##### ##### ##### #####\n", pLogInfo->httpSender);
 
 	iFD = open(pLogFilePath, O_WRONLY|O_CREAT, 0666);
 
@@ -437,7 +440,7 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 	else
 	{
 		httpLogInfo.httpSender = pMsg->LABEL;
-	}	
+	}
 	httpLogInfo.httpSendMsg = pMsg->sendBuff;
 
 	//shbaek: Server Connect.
@@ -483,7 +486,16 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 		}
 		else if(iCount == 0)
 		{
-			if(iDBG)GRIB_LOGD("# %s-HTTP-MSG: RECV DONE [TOTAL: %d]\n", httpLogInfo.httpSender, iTotal);
+			if(iTotal == 0)
+			{//shbaek: Something Wrong !!!
+				STRINIT(httpLogInfo.httpErrMsg, sizeof(httpLogInfo.httpErrMsg));
+				SNPRINTF(httpLogInfo.httpErrMsg, sizeof(httpLogInfo.httpErrMsg), "%s [%s (%d)]", "RECV NULL", LINUX_ERROR_STR, LINUX_ERROR_NUM);
+				iError = TRUE;
+			}
+			else
+			{//shbaek: Done ...
+				if(iDBG)GRIB_LOGD("# %s-HTTP-MSG: RECV DONE [TOTAL: %d]\n", httpLogInfo.httpSender, iTotal);
+			}
 			break;
 		}
 		else
@@ -517,7 +529,11 @@ FINAL:
 
 	if(iError)
 	{
-		GRIB_LOGD("# HTTP SEND ERROR: %s\n", httpLogInfo.httpErrMsg);
+		STRINIT(pMsg->statusMsg, sizeof(pMsg->statusMsg));
+//		STRNCPY(pMsg->statusMsg, httpLogInfo.httpErrMsg, STRLEN(httpLogInfo.httpErrMsg));
+		STRNCPY(pMsg->statusMsg, LINUX_ERROR_STR, STRLEN(LINUX_ERROR_STR));
+		pMsg->statusCode = LINUX_ERROR_NUM;
+
 		Grib_HttpTombStone(&httpLogInfo);
 		return GRIB_ERROR;
 	}

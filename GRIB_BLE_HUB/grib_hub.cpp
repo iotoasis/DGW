@@ -10,8 +10,9 @@ shbaek: Include File
 #include "grib_ble.h"
 #include "grib_regi.h"
 #include "grib_thread.h"
-#include "grib_sda.h"
 #include "grib_auth.h"
+
+#include "grib_test.h"
 
 #ifdef FEATURE_CAS
 #include "grib_cas.h"
@@ -24,20 +25,25 @@ shbaek: Global Variable
 void Grib_MenuHelp(void)
 {
 	GRIB_LOGD("\n");
-	GRIB_LOGD("# ########## ########## ########## GRIB MENU ########## ########## ##########\n");
+	GRIB_LOGD(GRIB_1LINE_SHARP);
 //	GRIB_LOGD("#\n");
 	GRIB_LOGD("# grib version\n");
 	GRIB_LOGD("# grib hub\n");
+	GRIB_LOGD("# grib kill\n");
 	GRIB_LOGD("# grib regi \"DEVICE ADDR\"\n");
 	GRIB_LOGD("# grib deregi \"DEVICE ID\"\n");
 	GRIB_LOGD("# grib db all\n");
 	GRIB_LOGD("# grib db create\n");
 	GRIB_LOGD("# grib db drop\n");
+	GRIB_LOGD("# grib config\n");
+	GRIB_LOGD("# grib config hub \"HUB ID\"\n");
+	GRIB_LOGD("# grib config si \"SI IP\", \"SI PORT\", \"IN NAME\", \"CSE NMAE\"\n");
+	GRIB_LOGD("# grib config etc \"RESET HOUR\", \"DEBUG[0 or 1]\", \"TOMBSTONE[0 or 1]\"\n");
 	GRIB_LOGD("# grib ble init\n");
 	GRIB_LOGD("# grib ble sacn\n");
 	GRIB_LOGD("# grib ble info \"DEVICE ADDR\"\n");
 //	GRIB_LOGD("#\n");
-	GRIB_LOGD("# ########## ########## ########## ######### ########## ########## ##########\n");
+	GRIB_LOGD(GRIB_1LINE_SHARP);
 	GRIB_LOGD("\n");
 	return;
 }
@@ -46,46 +52,136 @@ void Grib_MenuConfig(int argc, char **argv)
 {
 	Grib_ConfigInfo* pConfigInfo = NULL;
 
-	pConfigInfo = Grib_GetConfigInfo();
-	if(pConfigInfo == NULL)
-	{
-		GRIB_LOGD("LOAD CONFIG ERROR !!!\n");
-		return;
-	}
+	int   iRes = GRIB_ERROR;
+	char* subMenu = NULL;
 
-	GRIB_LOGD("\n");
-	GRIB_LOGD("# ########## ########## ########## GRIB CONFIG ########## ########## ##########\n");
-	GRIB_LOGD("# HUB_ID              : %s\n", pConfigInfo->hubID);
-	GRIB_LOGD("# PLATFORM_SERVER_IP  : %s\n", pConfigInfo->platformServerIP);
-	GRIB_LOGD("# PLATFORM_SERVER_PORT: %d\n", pConfigInfo->platformServerPort);
-	GRIB_LOGD("# AUTH_SERVER_IP      : %s\n", pConfigInfo->authServerIP);
-	GRIB_LOGD("# AUTH_SERVER_PORT    : %d\n", pConfigInfo->authServerPort);
-	GRIB_LOGD("# SDA_SERVER_IP       : %s\n", pConfigInfo->sdaServerIP);
-	GRIB_LOGD("# SDA_SERVER_PORT     : %d\n", pConfigInfo->sdaServerPort);
-	GRIB_LOGD("# MYSQL_DB_HOST       : %s\n", pConfigInfo->iotDbHost);
-	GRIB_LOGD("# MYSQL_DB_PORT       : %d\n", pConfigInfo->iotDbPort);
-	GRIB_LOGD("# MYSQL_DB_USER       : %s\n", pConfigInfo->iotDbUser);
-	GRIB_LOGD("# MYSQL_DB_PASSWORD   : %s\n", pConfigInfo->iotDbPswd);
-	GRIB_LOGD("# GRIB_DEBUG_ONEM2M   : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->debugOneM2M));
-	GRIB_LOGD("# GRIB_DEBUG_BLE      : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->debugBLE));
-	GRIB_LOGD("# GRIB_DEBUG_THREAD   : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->debugThread));
-	GRIB_LOGD("# GRIB_TOMBSTONE_BLE  : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->tombStoneBLE));
-	GRIB_LOGD("# GRIB_TOMBSTONE_HTTP : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->tombStoneHTTP));
-	GRIB_LOGD("# ########## ########## ########## ######### ########## ########## ##########\n");
-	GRIB_LOGD("\n");
+	if(STRLEN(argv[GRIB_CMD_SUB]) == 0)
+	{
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return;
+		}
+
+		Grib_ShowConfig(pConfigInfo);
+
+		return;		
+	}
+	subMenu = argv[GRIB_CMD_SUB];
+
+	if(STRNCASECMP(subMenu, "HUB", STRLEN("HUB"))==0)
+	{
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return;
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG1]) != 0)
+		{
+			STRINIT(pConfigInfo->hubID, sizeof(pConfigInfo->hubID));
+			STRNCPY(pConfigInfo->hubID, argv[GRIB_CMD_ARG1], STRLEN(argv[GRIB_CMD_ARG1]));
+		}
+
+		iRes = Grib_SetConfigHub(pConfigInfo);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# SET CONFIG SI ERROR !!!\n");
+			return;
+		}
+		GRIB_LOGD("# SET CONFIG SI DONE ...\n");
+		Grib_ShowConfig(pConfigInfo);
+
+		return;	
+	}
+	
+	if(STRNCASECMP(subMenu, "SI", STRLEN("SI"))==0)
+	{
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return;
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG1]) != 0)
+		{
+			STRINIT(pConfigInfo->siServerIP, sizeof(pConfigInfo->siServerIP));
+			STRNCPY(pConfigInfo->siServerIP, argv[GRIB_CMD_ARG1], STRLEN(argv[GRIB_CMD_ARG1]));
+		}
+		if(STRLEN(argv[GRIB_CMD_ARG2]) != 0)
+		{
+			pConfigInfo->siServerPort = ATOI(argv[GRIB_CMD_ARG2]);
+		}
+		if(STRLEN(argv[GRIB_CMD_ARG3]) != 0)
+		{
+			STRINIT(pConfigInfo->siInName, sizeof(pConfigInfo->siInName));
+			STRNCPY(pConfigInfo->siInName, argv[GRIB_CMD_ARG3], STRLEN(argv[GRIB_CMD_ARG3]));
+		}
+		if(STRLEN(argv[GRIB_CMD_ARG4]) != 0)
+		{
+			STRINIT(pConfigInfo->siCseName, sizeof(pConfigInfo->siCseName));
+			STRNCPY(pConfigInfo->siCseName, argv[GRIB_CMD_ARG4], STRLEN(argv[GRIB_CMD_ARG4]));
+		}
+
+		iRes = Grib_SetConfigSi(pConfigInfo);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# SET CONFIG SI ERROR !!!\n");
+			return;
+		}
+		GRIB_LOGD("# SET CONFIG SI DONE ...\n");
+		Grib_ShowConfig(pConfigInfo);
+
+		return;	
+	}
+	
+	if(STRNCASECMP(subMenu, "ETC", STRLEN("ETC"))==0)
+	{
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return;
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG1]) != 0)
+		{
+			pConfigInfo->resetTimeHour = ATOI(argv[GRIB_CMD_ARG1]);
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG2]) != 0)
+		{
+			pConfigInfo->debugLevel = ATOI(argv[GRIB_CMD_ARG2]);
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG3]) != 0)
+		{
+			pConfigInfo->tombStone = ATOI(argv[GRIB_CMD_ARG3]);
+		}
+
+		iRes = Grib_SetConfigEtc(pConfigInfo);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# SET CONFIG ETC ERROR !!!\n");
+			return;
+		}
+		GRIB_LOGD("# SET CONFIG ETC DONE ...\n");
+		Grib_ShowConfig(pConfigInfo);
+
+		return;	
+	}
 
 	return;
 }
 
-void Grib_MenuHub(int argc, char **argv)
+void Grib_HubConfig(int mode)
 {
 	int iRes = GRIB_ERROR;
 	const char* FUNC_TAG = "# GRIB-HUB:";
 	Grib_ConfigInfo* pConfigInfo = NULL;
-
-	//3 shbaek: MAIN FUNCTION
-	GRIB_LOGD("# ##### ##### ##### ##### ##### GRIB HUB START ##### ##### ##### ##### #####\n");
-	GRIB_LOGD("# COMPILE TIME : %s %s\n", __DATE__, __TIME__);
 
 	pConfigInfo = Grib_GetConfigInfo();
 	if(pConfigInfo == NULL)
@@ -107,6 +203,32 @@ void Grib_MenuHub(int argc, char **argv)
 		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC_TAG);
 		return;
 	}
+
+#ifdef FEATURE_CAS
+	//shbaek: CAS Lib Init & Get Certification
+	iRes = Grib_CasInit(pConfigInfo->hubID);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC_TAG);
+		return;
+	}
+#endif
+
+	return;
+}
+
+void Grib_MenuHub(int argc, char **argv)
+{
+	int iRes = GRIB_ERROR;
+	const char* FUNC_TAG = "# GRIB-HUB:";
+	Grib_ConfigInfo* pConfigInfo = NULL;
+
+	//3 shbaek: MAIN FUNCTION
+	GRIB_LOGD(GRIB_1LINE_SHARP);
+	GRIB_LOGD("# COMPILE TIME : %s %s\n", __DATE__, __TIME__);
+
+	Grib_HubConfig(1);
+
 	iRes = Grib_BleConfig();
 	if(iRes != GRIB_DONE)
 	{
@@ -127,16 +249,6 @@ void Grib_MenuHub(int argc, char **argv)
 		GRIB_LOGD("%s BLE PIPE CLEAN FAIL\n", FUNC_TAG);
 	}
 
-#ifdef FEATURE_CAS
-	//shbaek: CAS Lib Init & Get Certification
-	iRes = Grib_CasInit(pConfigInfo->hubID);
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC_TAG);
-		return;
-	}
-#endif
-
 	Grib_ThreadStart();
 	return;
 }
@@ -150,33 +262,13 @@ void Grib_MenuRegi(int argc, char **argv)
 	char* option = NULL;
 	int   optAuth = GRIB_NOT_USED;
 
-	Grib_ConfigInfo* pConfigInfo = NULL;
-
-	//shbaek: You Must be Set Server Config.
-	Grib_SiSetServerConfig();
+	Grib_BleConfig();
 
 	if(argc < GRIB_CMD_SUB+1)
 	{
 		GRIB_LOGD("# USAGE: grib regi \"DEVICE ADDR\"\n");
 		return;
 	}
-
-#ifdef FEATURE_CAS
-	pConfigInfo = Grib_GetConfigInfo();
-	if(pConfigInfo == NULL)
-	{
-		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC_TAG);
-		return;
-	}
-
-	//shbaek: CAS Lib Init & Get Certification
-	iRes = Grib_CasInit(pConfigInfo->hubID);
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC_TAG);
-		return;
-	}
-#endif
 
 	deviceAddr = argv[GRIB_CMD_SUB];
 
@@ -210,31 +302,11 @@ void Grib_MenuDeRegi(int argc, char **argv)
 	char* deviceID  = NULL;
 	char* option    = NULL;
 
-	//shbaek: You Must be Set Server Config.
-	Grib_SiSetServerConfig();
-
 	if(argc < GRIB_CMD_SUB+1)
 	{
 		GRIB_LOGD("# USAGE: grib deregi \"DEVICE ID\"\n");
 		return;
 	}
-
-#ifdef FEATURE_CAS
-	pConfigInfo = Grib_GetConfigInfo();
-	if(pConfigInfo == NULL)
-	{
-		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC_TAG);
-		return;
-	}
-
-	//shbaek: CAS Lib Init & Get Certification
-	iRes = Grib_CasInit(pConfigInfo->hubID);
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC_TAG);
-		return;
-	}
-#endif
 
 	deviceID = argv[GRIB_CMD_SUB];
 
@@ -263,7 +335,7 @@ void Grib_MenuBle(int argc, char **argv)
 
 	subMenu = GRIB_CMD_SUB[argv];
 
-	Grib_BleConfig();
+	//Grib_BleConfig();
 
 	if(STRCASECMP(subMenu, "init") == 0)
 	{
@@ -281,8 +353,13 @@ void Grib_MenuBle(int argc, char **argv)
 		STRINIT(rowDeviceInfo.deviceAddr, sizeof(rowDeviceInfo.deviceAddr));
 		STRNCPY(rowDeviceInfo.deviceAddr, deviceAddr, STRLEN(deviceAddr));
 
-		Grib_BleDeviceInfo(&rowDeviceInfo);
+		Grib_BleGetDeviceInfo(&rowDeviceInfo);
 	}
+	if(STRCASECMP(subMenu, "clean") == 0)
+	{
+		Grib_BleCleanAll();
+	}
+
 	if(STRCASECMP(subMenu, "send") == 0)
 	{
 		if(argc < GRIB_CMD_ARG3+1)
@@ -300,14 +377,57 @@ void Grib_MenuBle(int argc, char **argv)
 		//GRIB_LOGD("# SEND MSG[%03d]: %s\n", STRLEN(pSendMsg), pSendMsg);
 		//GRIB_LOGD("# RECV MSG[%03d]: %s\n", STRLEN(recvBuff), recvBuff);
 	}
-	if(STRCASECMP(subMenu, "clean") == 0)
+
+	if(STRCASECMP(subMenu, "only") == 0)
 	{
-		Grib_BleCleanAll();
+		char* deviceAddr = argv[GRIB_CMD_ARG1];
+		char* charHandle = argv[GRIB_CMD_ARG2];
+		char* strBuff = argv[GRIB_CMD_ARG3];
+
+		char* hexBuff = NULL;
+
+		Grib_BleDeviceInfo bleDevice;
+
+		MEMSET(&bleDevice, 0x00, sizeof(bleDevice));
+
+		hexBuff = (char*)MALLOC(STRLEN(strBuff)*2+1);
+		Grib_StrToHex(strBuff, hexBuff);
+
+		STRNCPY(bleDevice.addr, deviceAddr, STRLEN(deviceAddr));
+		STRNCPY(bleDevice.handle, charHandle, STRLEN(charHandle));
+
+		bleDevice.sendMsg = hexBuff;
+		bleDevice.label = "TEST";
+
+		Grib_BleSendOnly(&bleDevice);
+	}
+
+	if(STRCASECMP(subMenu, "req") == 0)
+	{
+		char* deviceAddr = argv[GRIB_CMD_ARG1];
+		char* charHandle = argv[GRIB_CMD_ARG2];
+		char* strBuff = argv[GRIB_CMD_ARG3];
+
+		char* hexBuff = NULL;
+
+		Grib_BleDeviceInfo bleDevice;
+
+		MEMSET(&bleDevice, 0x00, sizeof(bleDevice));
+
+		hexBuff = (char*)MALLOC(STRLEN(strBuff)*2+1);
+		Grib_StrToHex(strBuff, hexBuff);
+
+		STRNCPY(bleDevice.addr, deviceAddr, STRLEN(deviceAddr));
+		STRNCPY(bleDevice.handle, charHandle, STRLEN(charHandle));
+
+		bleDevice.sendMsg = hexBuff;
+		bleDevice.label = "TEST";
+
+		Grib_BleSendReq(&bleDevice);
 	}
 
 	return;
 }
-
 
 void Grib_MenuDb(int argc, char **argv)
 {
@@ -330,6 +450,7 @@ void Grib_MenuDb(int argc, char **argv)
 	if(STRCASECMP(subMenu, "create") == 0)
 	{
 		Grib_DbCreate();
+		Grib_GetConfigDB();
 		Grib_DbClose();
 	}
 	if(STRCASECMP(subMenu, "drop") == 0)
@@ -337,10 +458,59 @@ void Grib_MenuDb(int argc, char **argv)
 		Grib_DbDrop();
 		Grib_DbClose();
 	}
+	if(STRCASECMP(subMenu, "cache") == 0)
+	{
+		int iLoop = 0;
+		int iCacheCount = 0;
+		const int MAX_LOOP_COUNT = 0;
+
+		Grib_DbCacheRiAll cacheRiAll;
+		Grib_DbCacheRiAll* pCacheRiAll;
+		Grib_DbRowCacheRi*  pRowCacheRi = NULL;
+
+LOOP_TEST:
+		GRIB_LOGD("\n");
+		GRIB_LOGD("# LOOP COUNT : %d\n", iLoop);
+		Grib_ShowCurrDateTime();
+		iRes = Grib_DbGetCacheRiAll(&cacheRiAll);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# GET CACHE RI INFO FAIL !!!\n");
+			return;
+		}
+		pCacheRiAll = &cacheRiAll;
+		iCacheCount = pCacheRiAll->cacheCount;
+		for(i=0; i<iCacheCount; i++)
+		{
+			pRowCacheRi = pCacheRiAll->ppRowCacheRi[i];
+			GRIB_LOGD("\n");
+			GRIB_LOGD(GRIB_1LINE_DASH);
+			GRIB_LOGD("# RESOURCE ID   : %s\n", pRowCacheRi->rid);
+			//GRIB_LOGD("# RESOURCE TYPE : %d\n", pRowCacheRi->rtype);
+			//GRIB_LOGD("# RESOURCE NAME : %s\n", pRowCacheRi->rname);
+			//GRIB_LOGD("# PARENTS ID    : %s\n", pRowCacheRi->pid);
+			GRIB_LOGD("# URI           : %s\n", pRowCacheRi->uri);
+		}
+		//GRIB_LOGD("\n");
+
+		Grib_DoubleFree((void **)pCacheRiAll->ppRowCacheRi, pCacheRiAll->cacheCount);
+
+		iLoop++;
+		SLEEP(1);
+
+		if(iLoop<MAX_LOOP_COUNT) goto LOOP_TEST;
+	}
 	if(STRCASECMP(subMenu, "all") == 0)
 	{
-		Grib_DbToMemory(&dbAll);
 		pDbAll = &dbAll;
+		MEMSET(pDbAll, 0x00, sizeof(Grib_DbAll));
+		iRes = Grib_DbToMemory(&dbAll);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# GET DEVICE INFO FAIL !!!\n");
+			return;
+		}
+
 		iDeviceCount = pDbAll->deviceCount;
 
 		for(i=0; i<iDeviceCount; i++)
@@ -349,7 +519,7 @@ void Grib_MenuDb(int argc, char **argv)
 			iFuncCount = pRowDeviceInfo->deviceFuncCount;
 
 			GRIB_LOGD("\n");
-			GRIB_LOGD("# ---------- ---------- ---------- ---------- ---------- ---------- ----------\n");
+			GRIB_LOGD(GRIB_1LINE_DASH);
 			GRIB_LOGD("# DEVICE ID     : %s\n", pRowDeviceInfo->deviceID);
 //			GRIB_LOGD("# DEVICE IF     : %s\n", Grib_InterfaceToStr((Grib_DeviceIfType)pRowDeviceInfo->deviceInterface));
 			GRIB_LOGD("# DEVICE ADDR   : %s\n", pRowDeviceInfo->deviceAddr);
@@ -361,12 +531,13 @@ void Grib_MenuDb(int argc, char **argv)
 			for(x=0; x<iFuncCount; x++)
 			{
 				pRowDeviceFunc = pRowDeviceInfo->ppRowDeviceFunc[x];
-				GRIB_LOGD("# FUNC INFO[%d/%d]: [%s] [%s] [%s]\n", x+1, iFuncCount, pRowDeviceFunc->funcName,
-					pRowDeviceFunc->exRsrcID, Grib_FuncAttrToStr(pRowDeviceFunc->funcAttr));
-				//GRIB_LOGD("# NAME/RI/ATTR : [%s][%s][0x%x]\n", pRowDeviceFunc->funcName, pRowDeviceFunc->exRsrcID, pRowDeviceFunc->funcAttr);
+				GRIB_LOGD("# FUNC INFO[%d/%d]: [%20s] [%s]\n", x+1, iFuncCount, 
+					Grib_FuncAttrToStr(pRowDeviceFunc->funcAttr),	pRowDeviceFunc->funcName);
 			}
 		}
 		//GRIB_LOGD("\n");
+
+		Grib_DoubleFree((void **)pDbAll->ppRowDeviceInfo, pDbAll->deviceCount);
 	}
 	if(STRCASECMP(subMenu, "delete") == 0)
 	{
@@ -408,9 +579,10 @@ void Grib_MenuXM2M(int argc, char **argv)
 	OneM2M_ResParam resParam;
 
 #ifdef FEATURE_CAS
-	char pAuthKey[CAS_AUTH_KEY_SIZE] = {'\0', };
-	Grib_ConfigInfo* pConfigInfo = NULL;
+	char pAuthKey[GRIB_MAX_SIZE_AUTH_KEY] = {'\0', };
 #endif
+
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	MEMSET(&reqParam, GRIB_INIT, sizeof(reqParam));
 	MEMSET(&resParam, GRIB_INIT, sizeof(resParam));
@@ -428,7 +600,6 @@ void Grib_MenuXM2M(int argc, char **argv)
 	subMenu  = GRIB_CMD_SUB[argv];
 	deviceID = GRIB_CMD_ARG1[argv];
 
-#ifdef FEATURE_CAS
 	pConfigInfo = Grib_GetConfigInfo();
 	if(pConfigInfo == NULL)
 	{
@@ -436,6 +607,7 @@ void Grib_MenuXM2M(int argc, char **argv)
 		return;
 	}
 
+#ifdef FEATURE_CAS
 	//shbaek: CAS Lib Init & Get Certification
 	iRes = Grib_CasInit(pConfigInfo->hubID);
 	if(iRes != GRIB_DONE)
@@ -466,11 +638,17 @@ void Grib_MenuXM2M(int argc, char **argv)
 			GRIB_LOGD("# USAGE: grib xm2m cae \"DEVICE ID\"\n");
 			return;
 		}
-		argNM 	= GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("# CREATE APP ENTITY: %s\n", argNM);
+		deviceID 	= GRIB_CMD_ARG1[argv];
+		GRIB_LOGD("# CREATE APP ENTITY: %s\n", deviceID);
 
-		STRINIT(&reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
-		STRNCPY(&reqParam.xM2M_NM, argNM, STRLEN(argNM));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
+
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
+
+		STRINIT(reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
+		STRNCPY(reqParam.xM2M_NM, argNM, STRLEN(argNM));
 
 		iRes = Grib_AppEntityCreate(&reqParam, &resParam);
 		if(iRes == GRIB_ERROR)
@@ -488,20 +666,32 @@ void Grib_MenuXM2M(int argc, char **argv)
 			GRIB_LOGD("# USAGE: grib xm2m rae \"DEVICE ID\"\n");
 			return;
 		}
-		argOrigin 	= GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("# RETRIEVE APP ENTITY: %s\n", argOrigin);
+		deviceID 	= GRIB_CMD_ARG1[argv];
+		GRIB_LOGD("# RETRIEVE APP ENTITY: %s\n", deviceID);
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
+
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
 
 		iRes = Grib_AppEntityRetrieve(&reqParam, &resParam);
-		if(iRes == GRIB_ERROR)
+		GRIB_LOGD("\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
+
+		if(iRes == GRIB_DONE)
 		{
 			strUpper(mainMenu);
 			strUpper(subMenu);
-			GRIB_LOGD("# %s %s MENU FAIL\n", mainMenu, subMenu);
-		}
 
+			GRIB_LOGD("# RETRIEVE APP ENTITY RECV[%d]:\n%s\n", STRLEN(resParam.http_RecvData), resParam.http_RecvData);
+		}
+		else
+		{
+			GRIB_LOGD("# RETRIEVE APP ENTITY: %s [%d]\n", resParam.http_ResMsg, resParam.http_ResNum);			
+		}
+		
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 	}
 	if(STRCASECMP(subMenu, "dae") == 0)
 	{
@@ -510,11 +700,14 @@ void Grib_MenuXM2M(int argc, char **argv)
 			GRIB_LOGD("# USAGE: grib xm2m dae \"DEVICE ID\"\n");
 			return;
 		}
-		argOrigin 	= GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("# DELETE APP ENTITY: %s\n", argOrigin);
+		deviceID 	= GRIB_CMD_ARG1[argv];
+		GRIB_LOGD("# DELETE APP ENTITY: %s\n", deviceID);
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
+
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
 
 		iRes = Grib_AppEntityDelete(&reqParam, &resParam);
 		if(iRes == GRIB_ERROR)
@@ -532,18 +725,21 @@ void Grib_MenuXM2M(int argc, char **argv)
 			return;
 		}
 
-		argOrigin	= GRIB_CMD_ARG1[argv];
+		deviceID	= GRIB_CMD_ARG1[argv];
 		argURI		= GRIB_CMD_ARG2[argv];
 		argNM		= GRIB_CMD_ARG3[argv];
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
-		STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-		STRNCPY(&reqParam.xM2M_URI, argURI, STRLEN(argURI));
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
 
-		STRINIT(&reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
-		STRNCPY(&reqParam.xM2M_NM, argNM, STRLEN(argNM));
+		STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+		STRNCPY(reqParam.xM2M_URI, argURI, STRLEN(argURI));
+
+		STRINIT(reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
+		STRNCPY(reqParam.xM2M_NM, argNM, STRLEN(argNM));
 
 		iRes = Grib_ContainerCreate(&reqParam, &resParam);
 		if(iRes == GRIB_ERROR)
@@ -561,22 +757,35 @@ void Grib_MenuXM2M(int argc, char **argv)
 			return;
 		}
 
-		argOrigin	= GRIB_CMD_ARG1[argv];
+		deviceID	= GRIB_CMD_ARG1[argv];
 		argURI		= GRIB_CMD_ARG2[argv];
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
-		STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-		STRNCPY(&reqParam.xM2M_URI, argURI, STRLEN(argURI));
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
+
+		STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+		STRNCPY(reqParam.xM2M_URI, argURI, STRLEN(argURI));
 
 		iRes = Grib_ContainerRetrieve(&reqParam, &resParam);
-		if(iRes == GRIB_ERROR)
+		GRIB_LOGD("\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
+
+		if(iRes == GRIB_DONE)
 		{
 			strUpper(mainMenu);
 			strUpper(subMenu);
-			GRIB_LOGD("# %s %s MENU FAIL\n", mainMenu, subMenu);
+
+			GRIB_LOGD("# RETRIEVE CONTAINER RECV[%d]:\n%s\n", STRLEN(resParam.http_RecvData), resParam.http_RecvData);
 		}
+		else
+		{
+			GRIB_LOGD("# RETRIEVE CONTAINER: %s [%d]\n", resParam.http_ResMsg, resParam.http_ResNum);			
+		}
+		
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 	}
 	if(STRCASECMP(subMenu, "dcnt") == 0)
 	{
@@ -586,14 +795,17 @@ void Grib_MenuXM2M(int argc, char **argv)
 			return;
 		}
 
-		argOrigin	= GRIB_CMD_ARG1[argv];
+		deviceID	= GRIB_CMD_ARG1[argv];
 		argURI		= GRIB_CMD_ARG2[argv];
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
-		STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-		STRNCPY(&reqParam.xM2M_URI, argURI, STRLEN(argURI));
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
+
+		STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+		STRNCPY(reqParam.xM2M_URI, argURI, STRLEN(argURI));
 
 		iRes = Grib_ContainerDelete(&reqParam, &resParam);
 		if(iRes == GRIB_ERROR)
@@ -610,23 +822,26 @@ void Grib_MenuXM2M(int argc, char **argv)
 			GRIB_LOGD("# USAGE: grib xm2m ccin \"DEVICE ID\" \"URI\" \"CONTENT\"\n");
 			return;
 		}
-		argOrigin 	= GRIB_CMD_ARG1[argv];
+		deviceID 	= GRIB_CMD_ARG1[argv];
 		argURI 		= GRIB_CMD_ARG2[argv];
 		argCON 		= GRIB_CMD_ARG3[argv];
 
 		GRIB_LOGD("# CREATE INSTANCE: %s[CON:%s]\n", argURI, argCON);
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
-		STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-		SNPRINTF(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s", argURI);
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
 
-		STRINIT(&reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF));
-		SNPRINTF(&reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF), "%s:0", HTTP_CONTENT_TYPE_TEXT);
+		STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+		SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s", argURI);
 
-		STRINIT(&reqParam.xM2M_CON, sizeof(reqParam.xM2M_CON));
-		SNPRINTF(&reqParam.xM2M_CON, sizeof(reqParam.xM2M_CON), "%s", argCON);
+		STRINIT(reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF));
+		SNPRINTF(reqParam.xM2M_CNF, sizeof(reqParam.xM2M_CNF), "%s:0", HTTP_CONTENT_TYPE_TEXT);
+
+		STRINIT(reqParam.xM2M_CON, sizeof(reqParam.xM2M_CON));
+		SNPRINTF(reqParam.xM2M_CON, sizeof(reqParam.xM2M_CON), "%s", argCON);
 
 		//2 shbaek: NEED: xM2M_URI, xM2M_Origin, xM2M_CNF[If NULL, Set Default "text/plain:0"], xM2M_CON
 		iRes = Grib_ContentInstanceCreate(&reqParam, &resParam);
@@ -644,22 +859,36 @@ void Grib_MenuXM2M(int argc, char **argv)
 			GRIB_LOGD("# USAGE: grib xm2m rcin \"DEVICE ID\" \"URI\"\n");
 			return;
 		}
-		argOrigin 	= GRIB_CMD_ARG1[argv];
+		deviceID 	= GRIB_CMD_ARG1[argv];
 		argURI 		= GRIB_CMD_ARG2[argv];
 
-		STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		STRNCPY(&reqParam.xM2M_Origin, argOrigin, STRLEN(argOrigin));
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
-		STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-		SNPRINTF(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s", argURI);
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
+
+		STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+		SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s", argURI);
 
 		iRes = Grib_ContentInstanceRetrieve(&reqParam, &resParam);
-		if(iRes == GRIB_ERROR)
+
+		GRIB_LOGD("\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
+
+		if(iRes == GRIB_DONE)
 		{
 			strUpper(mainMenu);
 			strUpper(subMenu);
-			GRIB_LOGD("# %s %s MENU FAIL\n", mainMenu, subMenu);
+
+			GRIB_LOGD("# RETRIEVE CONTENT INST RECV[%d]:\n%s\n", STRLEN(resParam.http_RecvData), resParam.http_RecvData);
 		}
+		else
+		{
+			GRIB_LOGD("# RETRIEVE CONTENT INSTANCE: %s [%d]\n", resParam.http_ResMsg, resParam.http_ResNum);			
+		}
+		
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 	}
 
 	return;
@@ -789,25 +1018,6 @@ void Grib_MenuAuth(int argc, char **argv)
 	return;
 }
 
-void Grib_MenuCas(int argc, char **argv)
-{
-	int   iDelay = 0;
-	char  recvBuff[BLE_MAX_SIZE_RECV_MSG+1] = {'\0', };
-	char* subMenu = NULL;
-	char* pSendMsg = NULL;
-
-	char* deviceID = NULL;
-	char* deviceAddr = NULL;
-
-#ifdef FEATURE_CAS
-	Grib_CasTest(argc, argv);
-#else
-	GRIB_LOGD("# FEATURE_CAS IS NOT DEFINE !!!\n");
-#endif
-
-	return;
-}
-
 void Grib_MenuTest(int argc, char **argv)
 {
 	int   iDelay = 0;
@@ -820,9 +1030,9 @@ void Grib_MenuTest(int argc, char **argv)
 
 	subMenu = GRIB_CMD_SUB[argv];
 
-	if(STRCASECMP(subMenu, "sda") == 0)
+	if(STRCASECMP(subMenu, "smd") == 0)
 	{
-		char  deviceInfo[HTTP_MAX_SIZE_RECV_MSG] = {0x00, };
+		char  smdBuff[HTTP_MAX_SIZE_RECV_MSG] = {0x00, };
 
 		if(STRLEN(argv[GRIB_CMD_ARG1]) <= 0)
 		{
@@ -834,19 +1044,9 @@ void Grib_MenuTest(int argc, char **argv)
 		{
 			deviceID = argv[GRIB_CMD_ARG1];
 		}
-		Grib_SdaGetDeviceInfo(deviceID, deviceInfo);
-		GRIB_LOGD("# SEMANTIC DESCRIPTOR[%d]:\n%s\n", STRLEN(deviceInfo), deviceInfo);
+		Grib_SmdGetDeviceInfo(deviceID, smdBuff);
+		GRIB_LOGD("# SEMANTIC DESCRIPTOR[%d]:\n%s\n", STRLEN(smdBuff), smdBuff);
 
-		return;
-	}
-
-	if(STRCASECMP(subMenu, "cas") == 0)
-	{
-#ifdef FEATURE_CAS
-		Grib_CasTest(argc, argv);
-#else
-		GRIB_LOGD("# FEATURE_CAS IS NOT DEFINE !!!\n");
-#endif
 		return;
 	}
 
@@ -854,9 +1054,11 @@ void Grib_MenuTest(int argc, char **argv)
 	{
 		//long stackLimit = Grib_GetStackLimit();
 
-		printf("# ##### ##### ##### ##### ##### ##### ##### #####\n");
-		printf("# TEST PRINT: %s\n", getenv( "HOME" ));
-		printf("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+			printf("%c[1;32mGREEN COLOR PRINT%c[0m\n",27, 27);
+			printf("%c[1;33mYELLOW COLOR PRINT%c[0m\n",27, 27);
+
+            printf("NORMAL COLOR PRINT"); 
+
 		return;
 	}
 
@@ -867,7 +1069,7 @@ void Grib_MenuTest(int argc, char **argv)
 
 		if(STRLEN(argv[GRIB_CMD_ARG1]) <= 0)
 		{
-			srcText = TEST_BASE64_ENC_SRC;
+			srcText = "Grib Test Base 64 Text";
 		}
 		else
 		{
@@ -875,13 +1077,13 @@ void Grib_MenuTest(int argc, char **argv)
 		}
 		Grib_Base64Encode(srcText, encBuff, GRIB_NOT_USED);
 
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("# SRC[%d]:\n%s\n", STRLEN(srcText), srcText);
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("\n");
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("# ENC[%d]:\n%s\n", STRLEN(encBuff), encBuff);
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		
 		return;
 	}
@@ -893,7 +1095,7 @@ void Grib_MenuTest(int argc, char **argv)
 
 		if(STRLEN(argv[GRIB_CMD_ARG1]) <= 0)
 		{
-			srcText = TEST_BASE64_DEC_SRC;
+			srcText = "R3JpYiBUZXN0IEJhc2UgNjQgVGV4dA=="; //shbaek: "Grib Test Base 64 Text"
 		}
 		else
 		{
@@ -901,14 +1103,64 @@ void Grib_MenuTest(int argc, char **argv)
 		}
 		Grib_Base64Decode(srcText, decBuff, GRIB_NOT_USED);
 
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("# SRC[%d]:\n%s\n", STRLEN(srcText), srcText);
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("\n");
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		GRIB_LOGD("# DEC[%d]:\n%s\n", STRLEN(decBuff), decBuff);
-		GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
+		GRIB_LOGD(GRIB_1LINE_SHARP);
 		
+		return;
+	}
+
+	if(STRCASECMP(subMenu, "crc") == 0)
+	{
+		int i = 0;
+		byte crc = NULL;
+		char* sNum = argv[GRIB_CMD_ARG1];
+
+		for(i=0; i<STRLEN(sNum); i++)
+		{
+			GRIB_LOGD("# CRC[%d/%d]: 0x%x + 0x%x", i+1, STRLEN(sNum), crc, sNum[i]);
+			crc += sNum[i];
+			GRIB_LOGD(" = 0x%x\n", crc);
+		}
+
+	}
+
+	if(STRCASECMP(subMenu, "bin") == 0)
+	{
+		int   binSize = 0;
+		char* hexBuff = argv[GRIB_CMD_ARG1];
+		char* binBuff = NULL;
+
+		binSize = STRLEN(hexBuff)/2;
+
+		binBuff = (char*) MALLOC(binSize);
+
+		Grib_HexToBin(hexBuff, binBuff);
+
+		GRIB_LOGD("# HEX BUFF: %s [%d]\n", hexBuff, STRLEN(hexBuff));
+		Grib_PrintOnlyHex(binBuff, binSize);
+	}
+
+	if(STRCASECMP(subMenu, "cmd") == 0)
+	{
+		char* pCommand = "free -b";
+		char  pBuffer[SIZE_1M] = {'\0', };
+
+		GRIB_LOGD("# SYSTEM COMMAND: %s\n", pCommand);
+		systemCommand(pCommand, pBuffer, sizeof(pBuffer));
+		GRIB_LOGD(GRIB_1LINE_DASH);
+		GRIB_LOGD(pBuffer);
+		GRIB_LOGD(GRIB_1LINE_DASH);
+	}
+
+	if(STRCASECMP(subMenu, "stack") == 0)
+	{
+		long stackLimit = Grib_GetStackLimit();
+
 		return;
 	}
 
@@ -936,10 +1188,10 @@ int main(int argc, char **argv)
 
 	if(STRCASECMP(mainMenu, "version") == 0)
 	{
-		printf("# ##### ##### ##### ##### HUB VERSION ##### ##### ##### #####\n");
+		printf(GRIB_1LINE_SHARP);
 		printf("# HUB VERSION : %s\n", GRIB_HUB_VERSION);
 		printf("# COMPILE TIME: %s-%s\n", __DATE__, __TIME__);
-		printf("# ##### ##### ##### ##### ##### ##### ##### ##### ##### #####\n");
+		printf(GRIB_1LINE_SHARP);
 
 		return GRIB_DONE;
 	}

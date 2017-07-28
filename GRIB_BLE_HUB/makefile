@@ -22,19 +22,56 @@ COM_LIB		=	-L/usr/lib/arm-linux-gnueabihf	\
 				-lz -lm -ldl
 
 # ########## ########## ########## ########## ########## ##########
+# shbaek: FOR REBOOT
+# ########## ########## ########## ########## ########## ##########
+REBOOT_TARGET	=	grib_reboot
+
+REBOOT_INC		= 	$(COM_INC)						\
+			  		-I/usr/include/mysql
+
+REBOOT_LIB		=	$(COM_LIB)						\
+				 	-lmysqlclient
+
+REBOOT_OBJ		=	grib_reboot.o					\
+					grib_util.o						\
+					grib_db.o						\
+					grib_config.o
+
+REBOOT_SRC 		= 	$(REBOOT_OBJ:.o=.cpp)
+
+# ########## ########## ########## ########## ########## ##########
 # shbaek: FOR HCI
 # ########## ########## ########## ########## ########## ##########
 HCI_TARGET	=	grib_hci
 
-HCI_INC		= 	$(COM_INC)
+HCI_INC		= 	$(COM_INC)						\
+			  	-I/usr/include/mysql
 
 HCI_LIB		=	$(COM_LIB)						\
-				-lbluetooth
+				-lbluetooth						\
+			 	-lmysqlclient
 
 HCI_OBJ		=	grib_hci.o						\
-				grib_util.o
+				grib_util.o						\
+				grib_db.o
 
 HCI_SRC 	= 	$(HCI_OBJ:.o=.cpp)
+
+# ########## ########## ########## ########## ########## ##########
+# shbaek: FOR C-JSON
+# ########## ########## ########## ########## ########## ##########
+CJSON_PATH 	= 	${CURDIR}/libs/libcjson
+
+CJSON_INC	= 	-I${CJSON_PATH}					\
+			  	-L${CJSON_PATH}
+
+CJSON_LIB	=	-lcjson							\
+			 	-lcjson_utils
+
+CJSON_OBJ	=	${CJSON_PATH}/cJSON.o			\
+				${CJSON_PATH}/cJSON_Utils.o
+
+CJSON_SRC 	= 	$(CJSON_OBJ:.o=.c)
 
 # ########## ########## ########## ########## ########## ##########
 # shbaek: FOR CAS
@@ -53,88 +90,74 @@ CAS_LIB		=	-L${CAS_PATH}					\
 CAS_OBJ		=	grib_cas.o
 
 # ########## ########## ########## ########## ########## ##########
-# shbaek: FOR GRIB HUB
+# shbaek: FOR GRIB BLE HUB
 # ########## ########## ########## ########## ########## ##########
-HUB_FEATURE	=	$(COM_FEATURE)					\
-				$(CAS_FEATURE)
+BLE_HUB_FEATURE	=	$(COM_FEATURE) \
+					$(CAS_FEATURE)
 
-HUB_TARGET	= 	grib_hub
+BLE_HUB_TARGET	= 	grib_ble_hub
 
-HUB_INC		= 	$(COM_INC)						\
-			  	-I/usr/include/mysql			\
-			  	$(CAS_INC)
+BLE_HUB_INC		= 	$(COM_INC)						\
+				  	$(CAS_INC)						\
+				  	-I/usr/include/mysql
 
-HUB_LIB		=	$(COM_LIB)						\
-				-lpthread 						\
-				-lbluetooth 					\
-			 	-lmysqlclient 					\
-				$(CAS_LIB)
+BLE_HUB_LIB		=	$(COM_LIB)						\
+					$(CAS_LIB)						\
+					-lpthread 						\
+					-lbluetooth 					\
+				 	-lmysqlclient
 
-HUB_OBJ 	=	grib_hub.o 						\
-				grib_util.o 					\
-				grib_db.o						\
-				grib_ble.o 						\
-				grib_thread.o					\
-				grib_http.o 					\
-				grib_onem2m.o 					\
-				grib_regi.o 					\
-				grib_sda.o 						\
-				grib_auth.o 					\
-				$(CAS_OBJ)
+BLE_HUB_OBJ 	=	grib_hub.o 						\
+					$(CAS_OBJ)						\
+					grib_config.o 					\
+					grib_util.o 					\
+					grib_db.o						\
+					grib_ble.o 						\
+					grib_thread.o					\
+					grib_http.o 					\
+					grib_onem2m.o 					\
+					grib_regi.o 					\
+					grib_smd.o 						\
+					grib_auth.o
 
-HUB_SRC 	= 	$(HUB_OBJ:.o=.cpp)
-
-# ########## ########## ########## ########## ########## ##########
-# shbaek: FOR GRIB EMULATOR
-# ########## ########## ########## ########## ########## ##########
-EMUL_FEATURE=	$(COM_FEATURE)					\
-				$(CAS_FEATURE)
-
-EMUL_TARGET	= 	grib_emulator
-
-EMUL_INC	= 	$(COM_INC)						\
-			  	-I/usr/include/mysql			\
-			  	$(CAS_INC)
-
-EMUL_LIB	=	$(COM_LIB)						\
-				-lpthread 						\
-			 	-lmysqlclient 					\
-				$(CAS_LIB)
-
-EMUL_OBJ 	=	grib_emulator.o 				\
-				grib_util.o 					\
-				grib_http.o 					\
-				grib_onem2m.o 					\
-				grib_sda.o 						\
-				grib_auth.o 					\
-				$(CAS_OBJ)
-
-EMUL_SRC 	= 	$(EMUL_OBJ:.o=.cpp)
+BLE_HUB_SRC 	= 	$(BLE_HUB_OBJ:.o=.cpp)
 
 
 # ########## ########## ########## ########## ########## ##########
 # shbaek: COMMAND
 # ########## ########## ########## ########## ########## ##########
-all: clean hub hci
+all: reboot hci ble_hub
+
+reboot:
+	@echo "GRIB REBOOT MAKE ..."
+	@$(CXX) $(CXXFLAGS) -o $(REBOOT_TARGET) $(REBOOT_SRC) $(REBOOT_INC) $(REBOOT_LIB)
+	@$(RM) $(RMFLAG) $(REBOOT_OBJ)
+	@echo
+reboot_clean:
+	@echo "GRIB REBOOT CLEAN ..."
+	@$(RM) $(RMFLAG) $(REBOOT_OBJ) $(REBOOT_TARGET)
+	@echo
 
 hci:
-	$(CXX) $(CXXFLAGS) -o $(HCI_TARGET) $(HCI_SRC) $(HCI_INC) $(HCI_LIB)
-	$(RM) $(RMFLAG) $(HCI_OBJ)
+	@echo "GRIB HCI MAKE ..."
+	@$(CXX) $(CXXFLAGS) -o $(HCI_TARGET) $(HCI_SRC) $(HCI_INC) $(HCI_LIB)
+	@$(RM) $(RMFLAG) $(HCI_OBJ)
+	@echo
 hci_clean:
-	$(RM) $(RMFLAG) $(HCI_OBJ) $(HCI_TARGET)
+	@echo "GRIB HCI CLEAN ..."
+	@$(RM) $(RMFLAG) $(HCI_OBJ) $(HCI_TARGET)
+	@echo
 
-hub:
-	$(CXX) $(CXXFLAGS) -o $(HUB_TARGET) $(HUB_SRC) $(HUB_INC) $(HUB_LIB) $(HUB_FEATURE)
-	$(RM) $(RMFLAG) $(HUB_OBJ)
-	$(info FEATURE LIST: ${HUB_FEATURE})
-	$(info )
-hub_clean:
-	$(RM) $(RMFLAG) $(HUB_OBJ) $(HUB_TARGET)
+ble_hub:
+	@echo "GRIB BLE HUB MAKE ..."
+	@$(CXX) $(CXXFLAGS) -o $(BLE_HUB_TARGET) $(BLE_HUB_SRC) $(BLE_HUB_INC) $(BLE_HUB_LIB) $(BLE_HUB_FEATURE)
+	@$(RM) $(RMFLAG) $(BLE_HUB_OBJ)
+	@echo "FEATURE LIST: ${BLE_HUB_FEATURE}"
+	@echo
+ble_hub_clean:
+	@echo "GRIB BLE HUB CLEAN ..."
+	@$(RM) $(RMFLAG) $(BLE_HUB_OBJ) $(BLE_HUB_TARGET)
+	@echo
 
-emulator:
-	$(CXX) $(CXXFLAGS) -o $(EMUL_TARGET) $(EMUL_SRC) $(EMUL_INC) $(EMUL_LIB) $(EMUL_FEATURE)
-emulator_clean:
-	$(RM) $(RMFLAG) $(EMUL_OBJ) $(EMUL_TARGET)
-
-clean: hci_clean hub_clean
+clean: hci_clean ble_hub_clean
 

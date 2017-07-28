@@ -113,7 +113,129 @@ failed:
 	return 0;
 }
 
-static int print_advertising_devices(int dd, uint8_t filter_type, int maxScanCount, int ignoreDulicate)
+Grib_SqlInfo gHciSql;
+Grib_SqlInfo* Grib_GetHciSql(void)
+{
+	const char* FUNC_TAG = "HCI-SQL";
+
+	int iRes = GRIB_ERROR;
+	Grib_SqlInfo* pHciSql = &gHciSql;
+
+	Grib_FreeSqlInfo(pHciSql);
+
+	iRes = Grib_MakeSqlInfo(pHciSql);
+	if(iRes!=GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: MAKE SQL FAIL !!!\n", FUNC_TAG);
+		return NULL;
+	}
+
+	iRes = Grib_DbConnect(pHciSql);
+	if(iRes!=GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: DB CONNECT FAIL !!!\n", FUNC_TAG);
+		return NULL;
+	}
+
+	return pHciSql;
+}
+
+
+int Grib_ScanDeviceToDb(Grib_ScanDevInfo* pScanDevInfo)
+{
+	const char* FUNC_TAG = "HCI-INSERT";
+
+	int i = 0;
+	int iCount = 0;
+	int iRes = GRIB_ERROR;
+	int iDBG = FALSE;
+
+	Grib_SqlInfo* pHciSql = NULL;
+
+	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
+
+	if(pScanDevInfo == NULL)
+	{
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC_TAG);
+		return GRIB_ERROR;
+	}
+
+	pHciSql = Grib_GetHciSql();
+	if(pHciSql == NULL)
+	{
+		GRIB_LOGD("# %s: GET HCI SQL ERROR !!!\n", FUNC_TAG);
+		return GRIB_ERROR;
+	}
+
+	//2 shbaek: INSERT DATA
+	STRINIT(sqlQuery, sizeof(sqlQuery));
+	SPRINTF(sqlQuery, QUERY_INSERT_SCAN_DEVICE, pScanDevInfo->addr, pScanDevInfo->name,
+								pScanDevInfo->type, pScanDevInfo->memo);
+
+	iRes = Grib_DbQuery(pHciSql, sqlQuery);
+	if(iRes!=GRIB_DONE)
+	{
+		if(iDBG)GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC_TAG, pHciSql->errStr, pHciSql->errNum);
+		return GRIB_ERROR;
+	}
+
+	return iRes;
+}
+
+
+int Grib_HciInit(void)
+{
+	int dev_id = 0;
+	int sock = 0;
+	int ctl = 0;
+
+	GRIB_LOGD("# HCI DEVICE INIT START\n");
+	
+	// Setting the stdout to line buffered, this forces a flush on every '\n' (newline). 
+	// This will ensure that the python program consuming the output will not have any buffer issues. 
+	setvbuf(stdout, (char *) NULL, _IOLBF, 0);
+	
+	// Opening a HCI socket 
+	if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) 
+	{
+		perror("Can't open HCI socket.");
+		return GRIB_ERROR;
+	}
+
+	// Connecting to the device and attempting to get the devices info, if this errors, 
+	// it implies the usb is not plugged in correctly or we may have a bad/dodgy bluetooth usb 
+	if (ioctl(ctl, HCIGETDEVINFO, (void *) &di)) 
+	{
+		perror("Can't get device info: Make sure the bluetooth usb is properly inserted. ");
+		return GRIB_ERROR;
+	}
+	
+	// Assigning the devices id 
+	dev_id = di.dev_id;
+
+	GRIB_LOGD("# HCI DEVICE DOWN\n");
+	// Stop HCI device (e.g - bluetooth usb) - we are doing this to reset the adapter 
+	if (ioctl(ctl, HCIDEVDOWN, dev_id) < 0)
+	{
+		fprintf(stderr, "Can't down device hci%d: %s (%d)\n", dev_id, strerror(errno), errno);
+		return GRIB_ERROR;
+	}
+
+	GRIB_LOGD("# HCI DEVICE UP\n");
+	// Start HCI device (e.g - bluetooth usb)
+	if (ioctl(ctl, HCIDEVUP,dev_id) < 0)
+	{
+		if (errno == EALREADY) return 0;
+		fprintf(stderr, "Can't init device hci%d: %s (%d)\n",dev_id, strerror(errno), errno);
+		return GRIB_ERROR;
+	}
+
+	hci_close_dev(sock);
+	GRIB_LOGD("# HCI DEVICE INIT DONE\n");
+  	return 0;
+}
+
+static int Grib_PrintDevice(int dd, uint8_t filter_type, int maxScanCount, int ignoreDulicate)
 {
 	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
 	struct hci_filter nf, of;
@@ -125,9 +247,11 @@ static int print_advertising_devices(int dd, uint8_t filter_type, int maxScanCou
 	int idx = 0;
 	int noGet = TRUE;
 	bdaddr_t** ppAddrList;
+	Grib_ScanDevInfo scanDevInfo;
 
 	olen = sizeof(of);
-	if (getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0) {
+	if(getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0)
+	{
 		printf("Could not get socket options\n");
 		return -1;
 	}
@@ -136,7 +260,8 @@ static int print_advertising_devices(int dd, uint8_t filter_type, int maxScanCou
 	hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
 	hci_filter_set_event(EVT_LE_META_EVENT, &nf);
 
-	if (setsockopt(dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0) {
+	if(setsockopt(dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0)
+	{
 		printf("Could not set socket options\n");
 		return -1;
 	}
@@ -219,6 +344,16 @@ static int print_advertising_devices(int dd, uint8_t filter_type, int maxScanCou
 			if(eir_parse_name(info->data, info->length, name, sizeof(name) - 1))
 			{
 				printf("%s %s\n", addr, name);
+
+				memset(&scanDevInfo, 0x00, sizeof(scanDevInfo));
+
+				scanDevInfo.index = iCount;
+				STRNCPY(scanDevInfo.addr, addr, STRLEN(addr));
+				STRNCPY(scanDevInfo.name, name, STRLEN(name));
+				scanDevInfo.type = info->bdaddr_type;
+
+				Grib_ScanDeviceToDb(&scanDevInfo);
+
 				iCount++;
 			}
 		}
@@ -245,57 +380,6 @@ done:
 	return 0;
 }
 
-int Grib_HciInit(void)
-{
-	int dev_id = 0;
-	int sock = 0;
-	int ctl = 0;
-
-	GRIB_LOGD("# HCI DEVICE INIT START\n");
-	
-	// Setting the stdout to line buffered, this forces a flush on every '\n' (newline). 
-	// This will ensure that the python program consuming the output will not have any buffer issues. 
-	setvbuf(stdout, (char *) NULL, _IOLBF, 0);
-	
-	// Opening a HCI socket 
-	if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) 
-	{
-		perror("Can't open HCI socket.");
-		return GRIB_ERROR;
-	}
-
-	// Connecting to the device and attempting to get the devices info, if this errors, 
-	// it implies the usb is not plugged in correctly or we may have a bad/dodgy bluetooth usb 
-	if (ioctl(ctl, HCIGETDEVINFO, (void *) &di)) 
-	{
-		perror("Can't get device info: Make sure the bluetooth usb is properly inserted. ");
-		return GRIB_ERROR;
-	}
-	
-	// Assigning the devices id 
-	dev_id = di.dev_id;
-
-	GRIB_LOGD("# HCI DEVICE DOWN\n");
-	// Stop HCI device (e.g - bluetooth usb) - we are doing this to reset the adapter 
-	if (ioctl(ctl, HCIDEVDOWN, dev_id) < 0)
-	{
-		fprintf(stderr, "Can't down device hci%d: %s (%d)\n", dev_id, strerror(errno), errno);
-		return GRIB_ERROR;
-	}
-
-	GRIB_LOGD("# HCI DEVICE UP\n");
-	// Start HCI device (e.g - bluetooth usb)
-	if (ioctl(ctl, HCIDEVUP,dev_id) < 0)
-	{
-		if (errno == EALREADY) return 0;
-		fprintf(stderr, "Can't init device hci%d: %s (%d)\n",dev_id, strerror(errno), errno);
-		return GRIB_ERROR;
-	}
-
-	hci_close_dev(sock);
-	GRIB_LOGD("# HCI DEVICE INIT DONE\n");
-  	return 0;
-}
 
 int Grib_HciScan(int scanCount, int ignoreDuplicate)
 {
@@ -343,7 +427,7 @@ int Grib_HciScan(int scanCount, int ignoreDuplicate)
 	GRIB_LOGD("\n# ##### ##### ##### ##### ##### ##### ##### ##### ##### #####\n");
 
 	// Our own print funtion based off the bluez print function 
-	err = print_advertising_devices(sock, 0, scanCount, ignoreDuplicate);
+	err = Grib_PrintDevice(sock, 0, scanCount, ignoreDuplicate);
 	if (err < 0)
 	{
 		perror("Could not receive advertising events");
@@ -355,6 +439,194 @@ int Grib_HciScan(int scanCount, int ignoreDuplicate)
 	if (err < 0)
 	{
 		perror("Disable scan failed");
+		return GRIB_ERROR;
+	}
+
+	hci_close_dev(sock);
+	GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### ##### ##### #####\n\n");
+	GRIB_LOGD("# HCI DEVICE SCAN DONE\n");
+
+  	return 0;
+}
+
+static int Grib_PrintAdv(int sock, const char* addr, int opt)
+{
+	const char* FUNC = "PRINT-ADV";
+
+	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
+	struct hci_filter nf, of;
+	struct sigaction sa;
+	socklen_t olen;
+	int len;
+
+	int iCount = 0;
+	const int LOOP_COUNT = INT_MAX;
+	bdaddr_t targetAddr;
+
+	if((STRLEN(addr)+1) != BT_ADDR_MAX_BUFF_SIZE)
+	{
+		GRIB_LOGD("# %s: TARGET ADDR INVALID SIZE: %d\n", FUNC, STRLEN(addr));
+		return -1;
+	}
+
+	if(str2ba(addr, &targetAddr))
+	{
+		GRIB_LOGD("# %s: TARGET ADDR INVALID DATA: %s\n", FUNC, addr);
+		return -1;
+	}
+
+	olen = sizeof(of);
+	if(getsockopt(sock, SOL_HCI, HCI_FILTER, &of, &olen) < 0)
+	{
+		printf("# %s: Could not get socket options\n", FUNC);
+		return -1;
+	}
+
+	hci_filter_clear(&nf);
+	hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
+	hci_filter_set_event(EVT_LE_META_EVENT, &nf);
+
+	if(setsockopt(sock, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0)
+	{
+		printf("# %s: Could not set socket options\n", FUNC);
+		return -1;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_flags = SA_NOCLDSTOP;
+	sa.sa_handler = sigint_handler;
+	sigaction(SIGINT, &sa, NULL);
+
+	while(iCount < LOOP_COUNT)
+	{
+		char tempAddr[BT_ADDR_MAX_BUFF_SIZE] = {'\0', };
+		char tempName[HCI_DEVICE_NAME_MAX_SIZE] = {'\0', };
+
+		evt_le_meta_event*   meta;
+		le_advertising_info* info;
+
+		MEMSET(tempAddr, 0, sizeof(tempAddr));
+		MEMSET(tempName, 0, sizeof(tempName));
+
+		while((len = read(sock, buf, sizeof(buf))) < 0) 
+		{//shbaek: Error Case
+			if (errno == EINTR && signal_received == SIGINT) 
+			{
+				len = 0;
+				goto done;
+			}
+
+			if (errno == EAGAIN || errno == EINTR)
+			{
+				continue;
+			}
+			goto done;
+		}
+
+		ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
+		len -= (1 + HCI_EVENT_HDR_SIZE);
+		meta = (evt_le_meta_event *) ptr;
+
+		if (meta->subevent != 0x02)//shbaek: Sub Event: LE Advertising Report (0x02)
+			goto done;
+
+		info = (le_advertising_info *) (meta->data + 1);
+
+		if(bacmp(&targetAddr, &info->bdaddr) != 0)
+		{//shbaek: No Target ...
+			continue;
+		}
+
+		ba2str(&info->bdaddr, tempAddr);
+
+		GRIB_LOGD("\n");
+		Grib_ShowCurrDateTime();
+		GRIB_LOGD(GRIB_1LINE_DASH);
+		GRIB_LOGD("# [EVT: 0x%02X] [PEER: 0x%02X] [LEN: %d]\n", info->evt_type, info->bdaddr_type, info->length);
+
+/*
+		if(eir_parse_name(info->data, info->length, tempName, sizeof(tempName) - 1))
+		{
+			GRIB_LOGD("# NAME: %s\n", tempName);
+		}
+		else
+*/
+		{
+			Grib_PrintOnlyHex((char *)info->data, info->length);
+		}
+		iCount++;
+	}
+
+done:
+	setsockopt(sock, SOL_HCI, HCI_FILTER, &of, sizeof(of));
+
+	if (len < 0)
+		return -1;
+
+	return 0;
+}
+
+
+int Grib_HciAdv(char* addr, int opt)
+{
+	const char* FUNC = "HCI-ADV";
+
+	int dev_id = 0;
+	int sock = 0;
+	int err = 0;
+
+	// Setting the stdout to line buffered, this forces a flush on every '\n' (newline). 
+	// This will ensure that the python program consuming the output will not have any buffer issues. 
+	setvbuf(stdout, (char *) NULL, _IOLBF, 0);
+
+	Grib_HciInit();
+
+	GRIB_LOGD("# %s: START -> %s\n", FUNC, addr);
+
+	// Assigning the devices id 
+	dev_id = di.dev_id;
+
+	// Opening the ble device adapter so we can start scanning for iBeacons  
+	sock = hci_open_dev( dev_id );
+
+	// Ensure that no error occured whilst opening the socket 
+	if (dev_id < 0 || sock < 0)
+	{
+		GRIB_LOGD("# %s: opening socket", FUNC);
+		return GRIB_ERROR;
+	}
+	
+	// Setting the scan parameters 
+	err = hci_le_set_scan_parameters(sock, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 10000);
+	if (err < 0) 
+	{
+		GRIB_LOGD("# %s: Set scan parameters failed", FUNC);
+		return GRIB_ERROR;
+	}
+	
+	// hci bluetooth library call - enabling the scan 
+	err = hci_le_set_scan_enable(sock, 0x01, 0x00 , 10000);
+	if (err < 0) 
+	{
+		GRIB_LOGD("# %s: Enable scan failed", FUNC);
+		return GRIB_ERROR;
+	}
+
+	GRIB_LOGD("\n# ##### ##### ##### ##### ##### ##### ##### ##### ##### #####\n");
+
+	// Our own print funtion based off the bluez print function 
+	err = Grib_PrintAdv(sock, addr, opt);
+	if (err < 0)
+	{
+		GRIB_LOGD("# %s: Could not receive advertising events", FUNC);
+		return GRIB_ERROR;
+	}
+
+	// hci bluetooth library call - disabling the scan 
+	err = hci_le_set_scan_enable(sock, 0x00, 0x01, 10000);
+	if (err < 0)
+	{
+		GRIB_LOGD("# %s: Disable scan failed", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -418,7 +690,26 @@ int main(int argc, char **argv)
 		Grib_HciScan(scanCount, ignoreDuplicate);
 		return GRIB_DONE;
 	}
+	if(STRCASECMP(mainMenu, "adv") == 0)
+	{
+		char* addr = NULL;
+		int   opt  = GRIB_NOT_USED;
 
+		if(0<STRLEN(GRIB_CMD_SUB[argv]))
+		{
+			addr = GRIB_CMD_SUB[argv];
+
+			if(0<STRLEN(GRIB_CMD_ARG1[argv]))opt = ATOI(GRIB_CMD_ARG1[argv]);
+			
+			Grib_HciAdv(addr, opt);
+		}
+		else
+		{
+			GRIB_LOGD("# NEED TARGET ADDRESS !!!\n");
+		}
+		return GRIB_DONE;
+
+	}
 
 	GRIB_LOGD("# INVALID MENU\n");
 	GRIB_LOGD("\n");

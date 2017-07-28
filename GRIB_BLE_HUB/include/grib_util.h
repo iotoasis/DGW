@@ -22,34 +22,6 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_CONFIG_FILE_PATH							"./config/grib.config"
-#define GRIB_CONFIG_SEPARATOR							":"
-
-#define GRIB_CONFIG_HUB_ID							"HUB_ID"
-
-#define GRIB_CONFIG_PLATFORM_SERVER_IP				"PLATFORM_SERVER_IP"
-#define GRIB_CONFIG_PLATFORM_SERVER_PORT				"PLATFORM_SERVER_PORT"
-
-#define GRIB_CONFIG_AUTH_SERVER_IP					"AUTH_SERVER_IP"
-#define GRIB_CONFIG_AUTH_SERVER_PORT					"AUTH_SERVER_PORT"
-
-#define GRIB_CONFIG_SDA_SERVER_IP						"SDA_SERVER_IP"
-#define GRIB_CONFIG_SDA_SERVER_PORT					"SDA_SERVER_PORT"
-
-#define GRIB_CONFIG_MYSQL_DB_HOST						"MYSQL_DB_HOST"
-#define GRIB_CONFIG_MYSQL_DB_PORT						"MYSQL_DB_PORT"
-#define GRIB_CONFIG_MYSQL_DB_USER						"MYSQL_DB_USER"
-#define GRIB_CONFIG_MYSQL_DB_PASSWORD				"MYSQL_DB_PASSWORD"
-
-#define GRIB_CONFIG_RESET_TIMER_USE					"RESET_TIMER_USE"
-#define GRIB_CONFIG_RESET_TIME_HOUR					"RESET_TIME_HOUR"
-
-#define GRIB_CONFIG_DEBUG_ONEM2M						"GRIB_DEBUG_ONEM2M"
-#define GRIB_CONFIG_DEBUG_BLE							"GRIB_DEBUG_BLE"
-#define GRIB_CONFIG_DEBUG_THREAD						"GRIB_DEBUG_THREAD"
-#define GRIB_CONFIG_TOMBSTONE_BLE						"GRIB_TOMBSTONE_BLE"
-#define GRIB_CONFIG_TOMBSTONE_HTTP					"GRIB_TOMBSTONE_HTTP"
-
 #define READ_OPT_IGNORE_LF							0x0001
 
 #define BIT_MASK_2										0x03
@@ -59,38 +31,6 @@ shbaek: Include File
 #define BASE64_DEC_SRC_BYTE							4
 
 #define BASE64_PAD										'='
-
-typedef struct
-{
-	int  isLoad;
-	char hubID[DEVICE_MAX_SIZE_ID];
-
-	char platformServerIP[GRIB_MAX_SIZE_IP_STR];
-	unsigned int platformServerPort;
-
-	char authServerIP[GRIB_MAX_SIZE_IP_STR];
-	unsigned int authServerPort;
-
-	char sdaServerIP[GRIB_MAX_SIZE_IP_STR];
-	unsigned int sdaServerPort;
-
-	char iotDbHost[GRIB_MAX_SIZE_IP_STR];
-	unsigned int iotDbPort;
-
-	char iotDbUser[GRIB_MAX_SIZE_SHORT];
-	char iotDbPswd[GRIB_MAX_SIZE_SHORT];
-
-	int resetTimerSwitch;
-	int resetTimeHour;
-
-	int debugThread;
-	int debugOneM2M;
-	int debugBLE;
-
-	int tombStoneBLE;
-	int tombStoneHTTP;
-
-}Grib_ConfigInfo;
 
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
@@ -105,8 +45,8 @@ int 	strStartsWith(const char *line, const char *prefix);
 int 	strLower(char *strBuff);
 int 	strUpper(char *strBuff);
 void 	mSleep(long long mSec);
+void    systemReboot(int waitSec, char* msg);
 int 	systemCommand(const char *pCommand, char *pLineBuffer, int iBufferSize);
-int 	Grib_LoadConfig(Grib_ConfigInfo* pConfigInfo);
 
 int 	Grib_GetHostName(char* pBuff);
 int 	Grib_GetIPAddr(char* pBuff);
@@ -116,8 +56,6 @@ const char* Grib_InterfaceToStr(Grib_DeviceIfType iType);
 const char* Grib_ThreadStatusToStr(int iStatus);
 const char* Grib_BleErrorToStr(Grib_BleErrorCode iType);
 
-Grib_ConfigInfo* Grib_GetConfigInfo(void);
-
 char* Grib_TrimAll(char *pSource);
 int Grib_RandNum(int iMin, int iRange);
 
@@ -125,6 +63,12 @@ int Grib_ReadTextFile(char* filePath, char* pBuff, int opt);
 
 void Grib_PrintHex(const char* LABEL, char* pHexBuff, int iSize);
 void Grib_PrintOnlyHex(char* pHexBuff, int iSize);
+
+//shbaek: "TEST+" (5Byte String) -> "544553542B" (10Byte Hex String)
+int Grib_StrToHex(char* strBuff, char* hexBuff);
+
+//shbaek: "114D" (4Byte Hex String) -> 0x11 0x4D (2Byte Binary)
+int Grib_HexToBin(char* hexBuff, char* binBuff);
 
 long Grib_GetStackLimit(void);
 
@@ -134,5 +78,10 @@ int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt);
 int Grib_ReadTextFile(char* filePath, char* pBuff, int opt);
 int Grib_WriteTextFile(char* filePath, char* pBuff, char* opt);
 
+int Grib_DoubleFree(void** ppMem, int count);
+int Grib_GetCurrDateTime(char* pBuff);
+void Grib_ShowCurrDateTime(void);
+
+void Grib_MemLog(char* logDir);
 
 #endif

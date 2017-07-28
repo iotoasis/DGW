@@ -4,7 +4,27 @@
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#include <stdio.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
+#include <time.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <signal.h>
+#include <sys/param.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+
+
+#include "grib_define.h"
+#include "grib_util.h"
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -42,10 +62,12 @@ shbaek: Define
 
 #define TEST_SDA_DEVICE_ID								"ONSB_BleScanner01_001"
 
-#define TEST_CAS_HUB_ID									"LGU_SmartPlug_111111112"
-#define TEST_CAS_DEV_ID									"LGU_SmartPlug_111111113"
-
 #define TEST_BASE64_ENC_SRC								"Grib Test Base 64 Text"
 #define TEST_BASE64_DEC_SRC								"R3JpYiBUZXN0IEJhc2UgNjQgVGV4dA=="
+
+
+int Grib_TestMain(int argc, char **argv);
+int Grib_TestCJson(int argc, char **argv);
+
 
 #endif

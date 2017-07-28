@@ -3,17 +3,40 @@ shbaek: Include File
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
 #include "grib_util.h"
-
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-Grib_ConfigInfo gConfigInfo;
 
 const char BASE64TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+int Grib_DoubleFree(void** ppMem, int count)
+{
+	int i = 0;
+
+	if(count < 1)
+	{
+		//GRIB_LOGD("# DOUBLE FREE: [COUNT:%d]\n", count);
+		if(ppMem!=NULL)FREE(ppMem);
+
+		return GRIB_ERROR;
+	}
+
+	for(i=0; i<count; i++)
+	{
+		if(ppMem[i] != NULL)
+		{
+			FREE(ppMem[i]);
+			ppMem[i] = NULL;
+		}
+	}
+
+	FREE(ppMem);
+	return GRIB_DONE;
+}
+
 char* Grib_Split(char* strSrc, char searchChar, int searchCount)
 {
 	unsigned int iCount = 0;
@@ -27,7 +50,7 @@ char* Grib_Split(char* strSrc, char searchChar, int searchCount)
 
 	STRINIT(sTmpBuff, sizeof(sTmpBuff));
 
-	if(strSrc == NULL)
+	if( (strSrc==NULL) || (STRLEN(strSrc)==0) )
 	{
 		return NULL;
 	}
@@ -420,6 +443,71 @@ int systemCommand(const char *pCommand, char *pLineBuffer, int iBufferSize)
     return GRIB_DONE;
 }
 
+void systemReboot(int waitSec, char* msg)
+{
+	int  i = 0;
+	char pBuff[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+	const char* REBOOT_COMMAND = "sudo reboot --reboot --force";
+
+	char  logFile[SIZE_1K] = {'\0', };
+	char  logPath[SIZE_1K] = {'\0', };
+	char  logTime[GRIB_MAX_SIZE_TIME_STR] = {'\0', };
+
+	char* pOption = "w";
+
+	if(msg == NULL)msg = "Don't Ask Me ...";
+	Grib_GetCurrDateTime(logTime);
+	SNPRINTF(logFile, sizeof(logFile), "REBOOT_%s.log", logTime);
+	SNPRINTF(logPath, sizeof(logPath), "%s/%s", GRIB_FILE_PATH_LOG_ROOT, logFile);
+
+	Grib_WriteTextFile(logPath, msg, pOption);
+	sync();
+
+	for(i=waitSec; 0<i; i--)
+	{
+		GRIB_LOGD("# SYSTEM RE-BOOT: %c[1;33mCOUNT DOWN: %d%c[0m\n", 27, i, 27);
+		SLEEP(1);
+	}
+
+	GRIB_LOGD("# %c[1;33mSYSTEM RE-BOOT !!!%c[0m\n", 27, 27);
+	systemCommand(REBOOT_COMMAND, pBuff, sizeof(pBuff));
+
+    return;
+}
+
+
+int Grib_GetCurrDateTime(char* pBuff)
+{
+	time_t sysTimer;
+	TimeInfo *sysTime;
+
+	if(pBuff == NULL)
+	{
+		GRIB_LOGD("# PARAM IS NULL ERROR !!!\n");
+		return GRIB_ERROR;
+	}
+
+	sysTimer = time(NULL);
+	sysTime  = localtime(&sysTimer);
+
+	STRINIT(pBuff, GRIB_MAX_SIZE_TIME_STR);
+	SNPRINTF(pBuff, GRIB_MAX_SIZE_TIME_STR, GRIB_STR_TIME_FORMAT, 
+			sysTime->tm_year+1900, sysTime->tm_mon+1, sysTime->tm_mday,
+			sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+
+	return GRIB_DONE;
+}
+
+void Grib_ShowCurrDateTime(void)
+{
+	char tempTime[GRIB_MAX_SIZE_TIME_STR] = {'\0', };
+
+	Grib_GetCurrDateTime(tempTime);
+	GRIB_LOGD("# CURRENT TIME: %c[1;33m%s%c[0m\n", 27, tempTime, 27);
+
+	return;
+}
+
 int Grib_GetHostName(char* pBuff)
 {
 	int  iRes = GRIB_ERROR;
@@ -563,8 +651,6 @@ int Grib_WriteTextFile(char* filePath, char* pBuff, char* opt)
 	}
 	fclose(pFile);
 
-	GRIB_LOGD("# WRITE TOTAL COUNT: %d\n", i);
-
 	return GRIB_DONE;
 }
 
@@ -610,447 +696,34 @@ int Grib_ReadTextFile(char* filePath, char* pBuff, int opt)
 
 	return GRIB_DONE;
 }
-Grib_ConfigInfo* Grib_GetConfigInfo(void)
+
+void Grib_MemLog(char* logDir)
 {
-	int iRes = GRIB_ERROR;
-	int LOOP = 10;
+	int   iRes = GRIB_ERROR;
 
-	if(gConfigInfo.isLoad)
-	{
-		return &gConfigInfo;
-	}
+	char  logFile[SIZE_1K] = {'\0', };
+	char  logPath[SIZE_1K] = {'\0', };
+	char  logTime[GRIB_MAX_SIZE_TIME_STR] = {'\0', };
 
-LOAD_CONFIG:
-	LOOP--;
-	iRes = Grib_LoadConfig(&gConfigInfo);
-	if(iRes != GRIB_DONE)
-	{
-		SLEEP(1);
-		if(0<LOOP)goto LOAD_CONFIG;
-		return NULL;
-	}
+	char* pCommand = "free -b";
+	char  pBuffer[SIZE_1M] = {'\0', };
+	char* pOption = "w";
 
-	return &gConfigInfo;
+	if(logDir == NULL)return;
+
+	iRes = systemCommand(pCommand, pBuffer, sizeof(pBuffer));
+	if(iRes != GRIB_DONE)return;
+
+	Grib_GetCurrDateTime(logTime);
+
+	SNPRINTF(logFile, sizeof(logFile), "MEM_%s.log", logTime);
+	SNPRINTF(logPath, sizeof(logPath), "%s/%s", logDir, logFile);
+
+	Grib_WriteTextFile(logPath, pBuffer, pOption);
+
 }
 
-int Grib_LoadConfig(Grib_ConfigInfo* pConfigInfo)
-{
-	int iRes = GRIB_DONE;
-	int iDBG = FALSE;
-	FILE* pConfigFile = NULL;
-	char  pLineBuff[SIZE_1K] = {'\0', };
-	char* pTemp = NULL;
-	char* pTrim = NULL;
-	char* pValue = NULL;
 
-	if(iDBG)GRIB_LOGD("# LOAD CONFIG FILE START\n");
-
-	if(pConfigInfo == NULL)
-	{
-		pConfigInfo = &gConfigInfo;
-	}
-
-	pConfigFile = fopen(GRIB_CONFIG_FILE_PATH, "r");
-	if(pConfigFile == NULL)
-	{
-		GRIB_LOGD("# LOAD CONFIG FILE FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
-		return GRIB_ERROR;
-	}
-
-	while(!feof(pConfigFile))
-	{
-		STRINIT(pLineBuff, sizeof(pLineBuff));
-
-		if( fgets(pLineBuff, sizeof(pLineBuff)-1, pConfigFile) == NULL )
-		{
-			continue;
-		}
-
-		pLineBuff[STRLEN(pLineBuff)-1] = '\0';
-		pTrim = Grib_TrimAll(pLineBuff);
-		if(pTrim == NULL)continue;
-
-		if(*pTrim == GRIB_HASH)
-		{
-			continue;
-		}
-		else if(*pTrim == '\0')
-		{
-			continue;
-		}
-
-		if(STRNCMP(pTrim, GRIB_CONFIG_HUB_ID, STRLEN(GRIB_CONFIG_HUB_ID)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->hubID, sizeof(pConfigInfo->hubID));
-			STRNCPY(pConfigInfo->hubID, pValue, STRLEN(pValue));
-			continue;
-		}
-
-		//shbaek: Platform
-		if(STRNCMP(pTrim, GRIB_CONFIG_PLATFORM_SERVER_IP, STRLEN(GRIB_CONFIG_PLATFORM_SERVER_IP)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->platformServerIP, sizeof(pConfigInfo->platformServerIP));
-			STRNCPY(pConfigInfo->platformServerIP, pValue, STRLEN(pValue));
-			continue;
-		}
-
-		if(STRNCMP(pTrim, GRIB_CONFIG_PLATFORM_SERVER_PORT, STRLEN(GRIB_CONFIG_PLATFORM_SERVER_PORT)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			pConfigInfo->platformServerPort = ATOI(pValue);
-			continue;
-		}
-
-		//shbaek: Authentication
-		if(STRNCMP(pTrim, GRIB_CONFIG_AUTH_SERVER_IP, STRLEN(GRIB_CONFIG_AUTH_SERVER_IP)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->authServerIP, sizeof(pConfigInfo->authServerIP));
-			STRNCPY(pConfigInfo->authServerIP, pValue, STRLEN(pValue));
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_AUTH_SERVER_PORT, STRLEN(GRIB_CONFIG_AUTH_SERVER_PORT)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			pConfigInfo->authServerPort = ATOI(pValue);
-			continue;
-		}
-
-		//shbaek: Semantic Descriptor
-		if(STRNCMP(pTrim, GRIB_CONFIG_SDA_SERVER_IP, STRLEN(GRIB_CONFIG_SDA_SERVER_IP)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->sdaServerIP, sizeof(pConfigInfo->sdaServerIP));
-			STRNCPY(pConfigInfo->sdaServerIP, pValue, STRLEN(pValue));
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_SDA_SERVER_PORT, STRLEN(GRIB_CONFIG_SDA_SERVER_PORT)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			pConfigInfo->sdaServerPort = ATOI(pValue);
-			continue;
-		}
-
-		//shbaek: MySQL
-		if(STRNCMP(pTrim, GRIB_CONFIG_MYSQL_DB_HOST, STRLEN(GRIB_CONFIG_MYSQL_DB_HOST)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->iotDbHost, sizeof(pConfigInfo->iotDbHost));
-			STRNCPY(pConfigInfo->iotDbHost, pValue, STRLEN(pValue));
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_MYSQL_DB_PORT, STRLEN(GRIB_CONFIG_MYSQL_DB_PORT)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			pConfigInfo->iotDbPort = ATOI(pValue);
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_MYSQL_DB_USER, STRLEN(GRIB_CONFIG_MYSQL_DB_USER)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->iotDbUser, sizeof(pConfigInfo->iotDbUser));
-			STRNCPY(pConfigInfo->iotDbUser, pValue, STRLEN(pValue));
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_MYSQL_DB_PASSWORD, STRLEN(GRIB_CONFIG_MYSQL_DB_PASSWORD)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			STRINIT(pConfigInfo->iotDbPswd, sizeof(pConfigInfo->iotDbPswd));
-			STRNCPY(pConfigInfo->iotDbPswd, pValue, STRLEN(pValue));
-			continue;
-		}
-
-		//shbaek: Reset
-		if(STRNCMP(pTrim, GRIB_CONFIG_RESET_TIMER_USE, STRLEN(GRIB_CONFIG_RESET_TIMER_USE)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->resetTimerSwitch = TRUE;
-			}
-			else
-			{
-				pConfigInfo->resetTimerSwitch = FALSE;
-			}
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_RESET_TIME_HOUR, STRLEN(GRIB_CONFIG_RESET_TIME_HOUR)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			pConfigInfo->resetTimeHour = ATOI(pValue);
-			continue;
-		}
-
-		//shbaek: ETC
-		if(STRNCMP(pTrim, GRIB_CONFIG_DEBUG_ONEM2M, STRLEN(GRIB_CONFIG_DEBUG_ONEM2M)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-		
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->debugOneM2M = TRUE;
-			}
-			else
-			{
-				pConfigInfo->debugOneM2M = FALSE;
-			}
-
-			continue;
-		}
-		
-		if(STRNCMP(pTrim, GRIB_CONFIG_DEBUG_BLE, STRLEN(GRIB_CONFIG_DEBUG_BLE)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->debugBLE = TRUE;
-			}
-			else
-			{
-				pConfigInfo->debugBLE = FALSE;
-			}
-			continue;
-		}
-
-		if(STRNCMP(pTrim, GRIB_CONFIG_DEBUG_THREAD, STRLEN(GRIB_CONFIG_DEBUG_THREAD)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->debugThread = TRUE;
-			}
-			else
-			{
-				pConfigInfo->debugThread = FALSE;
-			}
-
-			continue;
-		}
-
-		if(STRNCMP(pTrim, GRIB_CONFIG_TOMBSTONE_BLE, STRLEN(GRIB_CONFIG_TOMBSTONE_BLE)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;				
-			}
-			pValue = &pTemp[1];
-
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->tombStoneBLE = TRUE;
-			}
-			else
-			{
-				pConfigInfo->tombStoneBLE = FALSE;
-			}
-
-			continue;
-		}
-
-		if(STRNCMP(pTrim, GRIB_CONFIG_TOMBSTONE_HTTP, STRLEN(GRIB_CONFIG_TOMBSTONE_HTTP)) == 0)
-		{
-			pTemp = STRSTR(pTrim, GRIB_CONFIG_SEPARATOR);
-			if(pTemp == NULL)
-			{
-				GRIB_LOGD("# THIS LINE NOT \":\" EXIST\n");
-				iRes = GRIB_ERROR;
-				continue;	
-			}
-			pValue = &pTemp[1];
-
-			if( STRNCASECMP(pValue, GRIB_BOOL_TO_STR(TRUE), STRLEN(GRIB_BOOL_TO_STR(TRUE))) == 0)
-			{
-				pConfigInfo->tombStoneHTTP = TRUE;
-			}
-			else
-			{
-				pConfigInfo->tombStoneHTTP = FALSE;
-			}
-
-			continue;
-		}
-
-		FREE(pTrim);
-		pTrim = NULL;
-	}
-
-	if(iDBG)
-	{
-		GRIB_LOGD("\n");
-		GRIB_LOGD("# HUB_ID              : [%s]\n", pConfigInfo->hubID);
-		GRIB_LOGD("# PLATFORM_SERVER_IP  : [%s]\n", pConfigInfo->platformServerIP);
-		GRIB_LOGD("# PLATFORM_SERVER_PORT: [%d]\n", pConfigInfo->platformServerPort);
-		GRIB_LOGD("# MYSQL_DB_HOST       : [%s]\n", pConfigInfo->iotDbHost);
-		GRIB_LOGD("# MYSQL_DB_PORT       : [%d]\n", pConfigInfo->iotDbPort);
-		GRIB_LOGD("# MYSQL_DB_USER       : [%s]\n", pConfigInfo->iotDbUser);
-		GRIB_LOGD("# MYSQL_DB_PASSWORD   : [%s]\n", pConfigInfo->iotDbPswd);
-		GRIB_LOGD("# RESET_TIMER_USE     : [%d]\n", pConfigInfo->resetTimerSwitch);
-		GRIB_LOGD("# RESET_TIME_HOUR     : [%d]\n", pConfigInfo->resetTimeHour);
-		GRIB_LOGD("# GRIB_DEBUG_ONEM2M   : [%d]\n", pConfigInfo->debugOneM2M);
-		GRIB_LOGD("# GRIB_DEBUG_BLE      : [%d]\n", pConfigInfo->debugBLE);
-		GRIB_LOGD("# GRIB_DEBUG_THREAD   : [%d]\n", pConfigInfo->debugThread);
-		GRIB_LOGD("# GRIB_TOMBSTONE_BLE  : [%d]\n", pConfigInfo->tombStoneBLE);
-		GRIB_LOGD("# GRIB_TOMBSTONE_HTTP : [%d]\n", pConfigInfo->tombStoneHTTP);
-		GRIB_LOGD("\n");
-	}
-
-	if(iDBG)GRIB_LOGD("# LOAD CONFIG FINAL\n");
-
-	if(pTrim != NULL)
-	{
-		FREE(pTrim);
-		pTrim = NULL;
-	}
-	if(pConfigFile != NULL)
-	{
-		fclose(pConfigFile);
-		pConfigFile = NULL;
-	}
-
-	if(iDBG)GRIB_LOGD("# LOAD CONFIG FILE DONE\n");
-
-	pConfigInfo->isLoad = TRUE;
-
-	return iRes;
-}
 
 #define __UTIL_STRING_CONVERTER__
 const char* Grib_ThreadStatusToStr(int iStatus)
@@ -1105,6 +778,9 @@ const char* Grib_BleErrorToStr(Grib_BleErrorCode iType)
 		case BLE_ERROR_CODE_RECV_FAIL:			return "BLE_ERROR_CODE_RECV_FAIL";
 		case BLE_ERROR_CODE_INTERNAL:			return "BLE_ERROR_CODE_INTERNAL";
 		case BLE_ERROR_CODE_INTERACTIVE:		return "BLE_ERROR_CODE_INTERACTIVE";
+		case BLE_ERROR_CODE_GET_HANDLE:			return "BLE_ERROR_CODE_GET_HANDLE";
+		case BLE_ERROR_CODE_READ_TIMEOUT:		return "BLE_ERROR_CODE_READ_TIMEOUT";
+
 		case BLE_ERROR_CODE_CRITICAL:			return "BLE_ERROR_CODE_CRITICAL";
 		default:								return "NOT_DEFINE";
     }
@@ -1114,6 +790,40 @@ const char* Grib_BleErrorToStr(Grib_BleErrorCode iType)
 int Grib_RandNum(int iMin, int iRange)
 {
 	return ( iMin + (rand()%iRange) );
+}
+
+//shbaek: "TEST+" -> "544553542B"
+int Grib_StrToHex(char* strBuff, char* hexBuff)
+{
+	int i = 0;
+
+	for(i=0; i<strlen(strBuff); i++)
+	{
+		sprintf(hexBuff+i*2, "%02X", *(strBuff+i));
+	}
+
+	return i;
+}
+
+//shbaek: "114D" (4Byte String) -> 0x11 0x4D (2Byte Binary)
+int Grib_HexToBin(char* hexBuff, char* binBuff)
+{
+	int i = 0;
+	int pos = 0;
+	char strBin[3] = {'\0', };
+	//isxdigit
+
+	for(i=0; i+1<strlen(hexBuff); i+=2)
+	{
+		memset(strBin, '\0', sizeof(strBin));
+		strBin[0] = hexBuff[i+0];
+		strBin[1] = hexBuff[i+1];
+		strBin[2] = '\0';
+
+		binBuff[(i/2)] = strtol(strBin, GRIB_NOT_USED, 16);		
+	}
+
+	return i;
 }
 
 void Grib_PrintHex(const char* LABEL, char* pHexBuff, int iSize)
@@ -1146,7 +856,7 @@ void Grib_PrintOnlyHex(char* pHexBuff, int iSize)
 			GRIB_LOGD("  ");
 		}
 
-		GRIB_LOGD("0x%02X ", pHexBuff[i]);
+		GRIB_LOGD("%02X ", pHexBuff[i]);
 		if(i==iSize-1)GRIB_LOGD("\n");
 	}
 
@@ -1157,8 +867,11 @@ long Grib_GetStackLimit(void)
 {
 	struct rlimit limit;
 
-	getrlimit (RLIMIT_STACK, &limit);
-	printf ("# STACK LIMIT: %ld / %ld\n", limit.rlim_cur, limit.rlim_max);
+	getrlimit(RLIMIT_DATA, &limit);
+	printf("# RLIMIT_DATA : %ld / %ld\n", limit.rlim_cur, limit.rlim_max);
+
+	getrlimit(RLIMIT_STACK, &limit);
+	printf("# RLIMIT_STACK: %ld / %ld\n", limit.rlim_cur, limit.rlim_max);
 
 	return limit.rlim_cur;
 }

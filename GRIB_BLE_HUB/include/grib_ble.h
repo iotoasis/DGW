@@ -10,32 +10,33 @@ shbaek: Include File
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-
-
-#include "grib_define.h"
-#include "grib_onem2m.h"
-#include "grib_thread.h"
-#include "grib_util.h"
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
+#include "grib_define.h"
+#include "grib_config.h"
+
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#define BLE_MAX_SIZE_ADDR									17	//shbaek: 12(STRING)+5(:)
+#define BLE_MAX_SIZE_HANDLE								4	//shbaek: 0x1234
+#define BLE_GATTTOOL_TIMEOUT								5	//shbaek: 5 Sec
 
 #define BLE_MAX_SIZE_SEND_MSG								256
 #define BLE_MAX_SIZE_RECV_MSG								256
@@ -43,10 +44,8 @@ shbaek: Include File
 #define BLE_GRIB_HCI_FILE_NAME							"grib_hci"
 #define BLE_GRIB_HCI_MENU_INIT							"init"
 
-#define BLE_FILE_PATH_BLECOMM_PROGRAM					"./libs/ble_extend/attrib/gatttool"
-
-#define BLE_FILE_PATH_PYTHON_PROGRAM						"/usr/bin/python"
-#define BLE_FILE_PATH_PYTHON_SCRIPT						"libs/ble_python/blecomm.py"
+#define BLE_FILE_PATH_GATTTOOL							"./libs/ble_extend/attrib/gatttool"
+#define BLE_FILE_PATH_GATTTOOL_EX							"./libs/bluez/attrib/gatttool"
 
 #define BLE_FILE_PATH_PIPE_ROOT							"pipe"
 #define BLE_FILE_PATH_LOG_ROOT							"log"
@@ -70,6 +69,40 @@ shbaek: Include File
 #define BLE_CMD_GET_FUNC_ATTR								"GET+FATTR?"
 #define BLE_CMD_GET_FUNC_COUNT							"GET+FCOUNT?"
 
+
+/* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+//shbaek: GATTTOOL Dependency Define
+/* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#define BLE_GATT_OPT_READ									"--char-read"
+#define BLE_GATT_OPT_WRITE_ONLY							"--char-write"
+#define BLE_GATT_OPT_WRITE_REQ							"--char-write-req"
+#define BLE_GATT_OPT_LISTEN								"--listen"
+
+#define BLE_GATT_OPT_HANDLE								"--handle"
+#define BLE_GATT_OPT_VALUE								"--value"
+#define BLE_GATT_OPT_DEVICE								"--device"
+#define BLE_GATT_OPT_PEER_PUBLIC							"--addr-type=public"
+#define BLE_GATT_OPT_PEER_RANDOM							"--addr-type=random"
+
+
+
+
+
+/* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+//shbaek: Type Define
+/* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+
+typedef struct
+{
+	char	addr[BLE_MAX_SIZE_ADDR+1];
+	char	handle[BLE_MAX_SIZE_HANDLE+1];
+	char*	sendMsg;
+	char*	recvMsg;
+
+	char*	pipe;
+	char*	label;
+}Grib_BleDeviceInfo;
+
 typedef struct
 {
 	const char*	bleAddr;
@@ -78,7 +111,6 @@ typedef struct
 	const char*	bleRecvMsg;
 	const char*	bleErrorMsg;
 }Grib_BleLogInfo;
-
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function Prototype
@@ -102,8 +134,9 @@ int Grib_BleSetFuncData(char* deviceAddr, char* deviceID, char* funcName, char* 
 int Grib_BleConfig(void);
 int Grib_BleDetourInit(void);
 int Grib_BleCleanAll(void);
-int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo);
+int Grib_BleGetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo);
 
-
+int Grib_BleSendOnly(Grib_BleDeviceInfo* pBleDevice);
+int Grib_BleSendReq(Grib_BleDeviceInfo* pBleDevice);
 
 #endif

@@ -12,10 +12,10 @@ shbaek: Include File
 #include <time.h>
 
 #include "grib_define.h"
-#include "grib_db.h"
-#include "grib_util.h"
+#include "grib_config.h"
 #include "grib_http.h"
-#include "grib_sda.h"
+#include "grib_smd.h"
+#include "grib_auth.h"
 
 #ifdef FEATURE_CAS
 #include "grib_cas.h"
@@ -24,22 +24,12 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Constant
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define ONEM2M_MAX_SIZE_BRIEF								GRIB_MAX_SIZE_BRIEF
-#define ONEM2M_MAX_SIZE_SHORT								GRIB_MAX_SIZE_SHORT
-#define ONEM2M_MAX_SIZE_MIDDLE							GRIB_MAX_SIZE_MIDDLE
-#define ONEM2M_MAX_SIZE_LONG								GRIB_MAX_SIZE_LONG
-#define ONEM2M_MAX_SIZE_URI								GRIB_MAX_SIZE_DLONG
-
-#define ONEM2M_MAX_SIZE_IP_STR							GRIB_MAX_SIZE_IP_STR
-#define ONEM2M_MAX_SIZE_SEND_MSG							HTTP_MAX_SIZE_SEND_MSG
-#define ONEM2M_MAX_SIZE_RECV_MSG							HTTP_MAX_SIZE_RECV_MSG
-
 //shbaek: 1. Device(=App Entity) Dir
 #define ONEM2M_URI_CONTENT_HUB							"hub"
 #define ONEM2M_URI_CONTENT_DEVICE							"device"
 
 //shbaek: Fixed URI String
-#define ONEM2M_URI_CONTENT_CSE							"/herit-in/herit-cse"
+#define ONEM2M_URI_CONTENT_CSE							"/%s/%s"
 #define ONEM2M_URI_CONTENT_POLLING_CHANNEL				"pollingchannel"
 #define ONEM2M_URI_CONTENT_EXECUTE						"execute"
 #define ONEM2M_URI_CONTENT_STATUS							"status"
@@ -59,17 +49,17 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_FIX_ATTR_ET								"20991231T235959"
 //#define ONEM2M_FIX_ATTR_MNI								INT_MAX
-#define ONEM2M_FIX_ATTR_MNI								100
+#define ONEM2M_FIX_ATTR_MNI								1000000ULL
 #define ONEM2M_FIX_ATTR_MBS								1024000ULL
-#define ONEM2M_FIX_ATTR_MIA								36000
+#define ONEM2M_FIX_ATTR_MIA								3600000ULL
 #define ONEM2M_FIX_ATTR_RR								"FALSE"
 
 #define ONEM2M_FIX_ATTR_ENC								"\"net\":[1,2,3,4]"
 
-#define ONEM2M_FIX_ATTR_NU_FORMAT							"http://%s:%d" ONEM2M_URI_CONTENT_CSE "/%s/" \
+#define ONEM2M_FIX_ATTR_NU_FORMAT							"http://%s:%d/%s/%s/%s/" \
 															ONEM2M_URI_CONTENT_POLLING_CHANNEL "/" ONEM2M_URI_CONTENT_PCU
 
-#define ONEM2M_EXPIRE_TIME_STR_SIZE						16
+#define ONEM2M_EXPIRE_TIME_STR_SIZE						GRIB_MAX_SIZE_TIME_STR
 
 #ifdef FEATURE_CAS	//shbaek: TBD
 #define CAS_HEAD_FORMAT_ATTR_AUTH_KEY					"Authorization: Basic %s\r\n"
@@ -80,7 +70,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** APP ENTITY ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_CREATE					\
-		"POST /herit-in/herit-cse HTTP/1.1\r\n"						\
+		"POST /%s/%s HTTP/1.1\r\n"						\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -106,7 +96,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_RETRIEVE					\
-		"GET /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"GET /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -116,7 +106,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_DELETE					\
-		"DELETE /herit-in/herit-cse/%s HTTP/1.1\r\n"				\
+		"DELETE /%s/%s/%s HTTP/1.1\r\n"				\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -128,7 +118,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** CONTAINER ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_CREATE						\
-		"POST /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"POST /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -153,7 +143,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_RETRIEVE					\
-		"GET /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"GET /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -163,7 +153,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_DELETE						\
-		"DELETE /herit-in/herit-cse/%s HTTP/1.1\r\n"				\
+		"DELETE /%s/%s/%s HTTP/1.1\r\n"				\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -175,7 +165,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** POLLING CHANNEL ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_POLLING_CHANNEL_CREATE				\
-		"POST /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"POST /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -197,7 +187,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_SUBSCRIPTION_CREATE					\
-		"POST /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"POST /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -226,7 +216,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** RUN TIME ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_CONTENT_INSTANCE_CREATE				\
-		"POST /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"POST /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -249,7 +239,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTENT_INSTANCE_RETRIEVE			\
-		"GET /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"GET /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -259,7 +249,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_LONG_POLLING							\
-		"GET /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"GET /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+xml\r\n"					\
 		"Content-Type:application/vnd.onem2m-res+xml\r\n"			\
@@ -274,7 +264,7 @@ shbaek: Define Fixed Data
 		"[HUB_IP : %s]"
 
 #define ONEM2M_HEAD_FORMAT_SEMANTIC_DESCRIPTOR_UPLOAD			\
-		"POST /herit-in/herit-cse/%s HTTP/1.1\r\n"					\
+		"POST /%s/%s/%s HTTP/1.1\r\n"					\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -298,7 +288,6 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 
-#define ONEM2M_1LINE_SEPERATOR	"# ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----\n"
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Type
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -336,22 +325,24 @@ typedef enum
 typedef struct
 {
 	char* http_SendDataEx; //shbaek: If Too Large Data, Use This. ex)Semantic Descriptor
-	char http_SendData[ONEM2M_MAX_SIZE_SEND_MSG+1];
+	char http_SendData[HTTP_MAX_SIZE_SEND_MSG];
 
-	char http_Method[ONEM2M_MAX_SIZE_BRIEF+1];
+	char http_Method[GRIB_MAX_SIZE_BRIEF];
 	int  http_ContentLen;
-	char http_ContentType[ONEM2M_MAX_SIZE_SHORT+1];
+	char http_ContentType[GRIB_MAX_SIZE_SHORT];
 	OneM2M_ResourceType xM2M_ResourceType;
 
-	char xM2M_URI[ONEM2M_MAX_SIZE_URI+1];
-	char xM2M_Origin[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_Func[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_ReqID[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_NM[ONEM2M_MAX_SIZE_SHORT+1];
+	char xM2M_URI[GRIB_MAX_SIZE_URI];
+	char xM2M_Origin[GRIB_MAX_SIZE_SHORT];
+	char xM2M_AeName[GRIB_MAX_SIZE_MIDDLE];
+	char xM2M_Func[GRIB_MAX_SIZE_SHORT];
+	char xM2M_ReqID[GRIB_MAX_SIZE_MIDDLE];
+	char xM2M_NM[GRIB_MAX_SIZE_MIDDLE];
+	char xM2M_AttrLBL[GRIB_MAX_SIZE_MIDDLE];
 	OneM2M_Operation_Type xM2M_OperationType;
 
-	char xM2M_CNF[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_CON[ONEM2M_MAX_SIZE_MIDDLE+1];
+	char xM2M_CNF[GRIB_MAX_SIZE_SHORT];
+	char xM2M_CON[GRIB_MAX_SIZE_MIDDLE];
 
 #ifdef FEATURE_CAS
 	char* authKey;
@@ -360,27 +351,28 @@ typedef struct
 
 typedef struct
 {
-	char http_RecvData[ONEM2M_MAX_SIZE_RECV_MSG+1];
+	char http_RecvData[HTTP_MAX_SIZE_RECV_MSG];
 
-//	char http_Version[ONEM2M_MAX_SIZE_BRIEF+1];
+//	char http_Version[GRIB_MAX_SIZE_BRIEF];
 	int  http_ResNum;
-	char http_ResMsg[ONEM2M_MAX_SIZE_SHORT+1];
+	char http_ResMsg[GRIB_MAX_SIZE_MIDDLE];
 
 //	int  http_ContentLen;
-//	char http_ContentType[ONEM2M_MAX_SIZE_SHORT+1];
-//	char http_ContentLocation[ONEM2M_MAX_SIZE_SHORT+1];
+//	char http_ContentType[GRIB_MAX_SIZE_SHORT];
+//	char http_ContentLocation[GRIB_MAX_SIZE_SHORT];
 //	int  http_ConnectStatus;
 
 	int  xM2M_ResCode;
-	char xM2M_ReqID[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_Origin[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_Result[ONEM2M_MAX_SIZE_SHORT+1];
+	char xM2M_ReqID[GRIB_MAX_SIZE_SHORT];
+	char xM2M_Origin[GRIB_MAX_SIZE_SHORT];
+	char xM2M_Result[GRIB_MAX_SIZE_SHORT];
 
-	char xM2M_RsrcID[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_PrntID[ONEM2M_MAX_SIZE_SHORT+1];
-	char xM2M_Content[ONEM2M_MAX_SIZE_MIDDLE+1];
+	char xM2M_RsrcID[GRIB_MAX_SIZE_SHORT];
+	char xM2M_PrntID[GRIB_MAX_SIZE_SHORT];
+	char xM2M_Content[GRIB_MAX_SIZE_MIDDLE];
 
-	char xM2M_ExpireTime[ONEM2M_MAX_SIZE_BRIEF];
+	char xM2M_CreateTime[ONEM2M_EXPIRE_TIME_STR_SIZE];
+	char xM2M_ExpireTime[ONEM2M_EXPIRE_TIME_STR_SIZE];
 }OneM2M_ResParam;
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
@@ -432,15 +424,10 @@ int Grib_SubsciptionCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResPara
 
 
 
-#ifdef FEATURE_CAS
+
 int Grib_UpdateHubInfo(char* pAuthKey);
-int Grib_UpdateDeviceInfo(Grib_DbAll *pDbAll, char* pAuthKey);
+int Grib_UpdateDeviceInfo(Grib_DbAll* pDbAll, char* pAuthKey);
 int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey);
-#else
-int Grib_UpdateHubInfo(void);
-int Grib_UpdateDeviceInfo(Grib_DbAll *pDbAll);
-int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo);
-#endif
 
 
 #endif

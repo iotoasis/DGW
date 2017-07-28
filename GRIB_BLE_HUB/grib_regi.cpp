@@ -7,17 +7,14 @@ shbaek: Include File
 shbaek: Global Variable
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
-#ifdef FEATURE_CAS
 int Grib_HubRegi(char* pAuthKey)
-#else
-int Grib_HubRegi(void)
-#endif
 {
 	int i = 0;
 	int iRes = GRIB_ERROR;
 
 	const int   HUB_FUNC_COUNT = 2;
 	const char* HUB_FUNC_NAME[HUB_FUNC_COUNT] = {ONEM2M_URI_CONTENT_HUB, ONEM2M_URI_CONTENT_DEVICE};
+	const int 	HUB_FUNC_ATTR[HUB_FUNC_COUNT] = {FUNC_ATTR_USE_ALL, FUNC_ATTR_USE_REPORT};
 
 	Grib_ConfigInfo* pConfigInfo = NULL;
 	Grib_DbRowDeviceInfo  rowDeviceInfo;
@@ -53,15 +50,11 @@ int Grib_HubRegi(void)
 
 		STRINIT(pRowDeviceFunc->funcName, sizeof(pRowDeviceFunc->funcName));
 		STRNCPY(pRowDeviceFunc->funcName, HUB_FUNC_NAME[i], STRLEN(HUB_FUNC_NAME[i]));
+
+		pRowDeviceFunc->funcAttr = HUB_FUNC_ATTR[i];
 	}
 
-
-#ifdef FEATURE_CAS
 	iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
-#else
-	iRes = Grib_CreateOneM2MTree(&rowDeviceInfo);
-#endif
-
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
@@ -84,9 +77,8 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	Grib_DbRowDeviceInfo  rowDeviceInfo;
 	Grib_DbRowDeviceFunc* pRowDeviceFunc = NULL;
 
-#ifdef FEATURE_CAS
-	char pAuthKey[CAS_AUTH_KEY_SIZE] = {'\0', };
-#endif
+	char pAuthKey[GRIB_MAX_SIZE_AUTH_KEY] = {'\0', };
+	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	if(deviceAddr == NULL)
 	{
@@ -109,49 +101,69 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 //	Grib_DbClose();
 
 	GRIB_LOGD("# ##### ##### ##### ##### GET BLE DEVICE INFO ##### ##### ##### #####\n");
-	iRes = Grib_BleDeviceInfo(&rowDeviceInfo);
+	iRes = Grib_BleGetDeviceInfo(&rowDeviceInfo);
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# GET BLE DEVICE INFO ERROR\n");
 		goto FINAL;
 	}
 
-	if(optAuth == AUTH_REGI_OPT_PW_OVER_WRITE)
+	if(0 < optAuth)
 	{
-		GRIB_LOGD("# TRY AUTH REGI ...\n");
+#ifdef FEATURE_CAS
 
-		iRes = Grib_AuthDeviceRegi(rowDeviceInfo.deviceID, GRIB_NOT_USED);
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# GET CONFIG ERROR !!!\n");
+			return GRIB_ERROR;
+		}
+
+		//shbaek: CAS Lib Init & Get Certification
+		iRes = Grib_CasInit(pConfigInfo->hubID);
 		if(iRes != GRIB_DONE)
 		{
-			GRIB_LOGD("# AUTH REGI FAIL ...\n");
+			GRIB_LOGD("# CAS INIT FAIL !!!\n");
+			return GRIB_ERROR;
 		}
-	}
+#endif
 
+		//shbaek: You Must be Set Server Config.
+		Grib_SiSetServerConfig();
+
+		if(optAuth == AUTH_REGI_OPT_PW_OVER_WRITE)
+		{
+			GRIB_LOGD("# TRY AUTH REGI ...\n");
+
+			iRes = Grib_AuthDeviceRegi(rowDeviceInfo.deviceID, GRIB_NOT_USED);
+			if(iRes != GRIB_DONE)
+			{
+				GRIB_LOGD("# AUTH REGI FAIL ...\n");
+			}
+		}
+		else if(optAuth == AUTH_REGI_OPT_PW_RE_USED)
+		{
+			iRes = Grib_AuthGetPW(rowDeviceInfo.deviceID, pAuthKey);
+		}
 #ifdef FEATURE_CAS
-	if(optAuth == AUTH_REGI_OPT_PW_RE_USED)
-	{
-		iRes = Grib_AuthGetPW(rowDeviceInfo.deviceID, pAuthKey);
+		else
+		{
+			iRes = Grib_CasGetAuthKey(rowDeviceInfo.deviceID, pAuthKey);
+		}
+#endif
+		GRIB_LOGD("# DEVICE REGI: %s GET AUTH KEY: %s\n", rowDeviceInfo.deviceID, pAuthKey);
+
+		GRIB_LOGD("# ##### ##### ##### ##### CREATE ONEM2M TREE  ##### ##### ##### #####\n");
+		iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
+			goto FINAL;
+		}
 	}
 	else
 	{
-		iRes = Grib_CasGetAuthKey(rowDeviceInfo.deviceID, pAuthKey);
-	}
-
-	GRIB_LOGD("# DEVICE REGI: %s GET AUTH KEY: %s\n", rowDeviceInfo.deviceID, pAuthKey);
-#endif
-
-	GRIB_LOGD("# ##### ##### ##### ##### CREATE ONEM2M TREE  ##### ##### ##### #####\n");
-
-#ifdef FEATURE_CAS
-	iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
-#else
-	iRes = Grib_CreateOneM2MTree(&rowDeviceInfo);
-#endif
-
-	if(iRes != GRIB_DONE)
-	{
-		GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
-		goto FINAL;
+		GRIB_LOGD("# %c[1;33mDo Not Create OneM2M Tree ...%c[0m\n", 27, 27);
 	}
 
 	GRIB_LOGD("# ##### ##### ##### ##### INSERT DEVICE INFO  ##### ##### ##### #####\n");
@@ -190,21 +202,48 @@ int Grib_DeviceDeRegi(char* deviceID, int delOneM2M)
 {
 	int iRes = GRIB_ERROR;
 
-	OneM2M_ReqParam reqParam;
-	OneM2M_ResParam resParam;
-
 #ifdef FEATURE_CAS
-	char pAuthKey[CAS_AUTH_KEY_SIZE] = {'\0', };
+	char pAuthKey[GRIB_MAX_SIZE_AUTH_KEY] = {'\0', };
 #endif
 
-	STRINIT(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-	STRNCPY(&reqParam.xM2M_Origin, deviceID, STRLEN(deviceID));
 
 	if(delOneM2M == TRUE)
 	{
+		Grib_ConfigInfo* pConfigInfo = NULL;
+
+		OneM2M_ReqParam reqParam;
+		OneM2M_ResParam resParam;
+
 		GRIB_LOGD("# ##### ##### ##### ##### DELETE APP ENTITY  ##### ##### ##### #####\n");
 
+		//shbaek: You Must be Set Server Config.
+		Grib_SiSetServerConfig();
+
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return GRIB_ERROR;
+		}
+
+		MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
+		MEMSET(&resParam, GRIB_INIT, sizeof(OneM2M_ResParam));
+
+		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+		SNPRINTF(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", pConfigInfo->hubID);
+
+		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
+		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));
+
 #ifdef FEATURE_CAS
+		//shbaek: CAS Lib Init & Get Certification
+		iRes = Grib_CasInit(pConfigInfo->hubID);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# CAS INIT FAIL !!!\n");
+			return GRIB_ERROR;
+		}
+
 		iRes = Grib_CasGetAuthKey(deviceID, pAuthKey);
 		if(iRes != GRIB_DONE)
 		{
@@ -212,7 +251,6 @@ int Grib_DeviceDeRegi(char* deviceID, int delOneM2M)
 		}
 		reqParam.authKey = pAuthKey;
 #endif
-
 		iRes = Grib_AppEntityDelete(&reqParam, &resParam);
 		if(iRes == GRIB_ERROR)
 		{

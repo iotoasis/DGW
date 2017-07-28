@@ -22,14 +22,13 @@ shbaek: Include File
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
-
-#include "grib_define.h"
-//#include "grib_util.h"
-
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
+#include "grib_define.h"
+#include "grib_util.h"
+#include "grib_db.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
@@ -59,5 +58,19 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+
+#define BT_ADDR_MAX_BUFF_SIZE					18	//shbaek: 12(STRING)+5(:)+1(NULL)
+
+
+typedef struct
+{
+	int  index;
+
+	char addr[BT_ADDR_MAX_BUFF_SIZE];
+	char name[GRIB_MAX_SIZE_SHORT];
+	char memo[GRIB_MAX_SIZE_MIDDLE];
+
+	unsigned int type;	//shbaek: Peer Address Type
+}Grib_ScanDevInfo;
 
 #endif

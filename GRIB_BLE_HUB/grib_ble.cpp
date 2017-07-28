@@ -9,9 +9,23 @@ shbaek: Global Variable
 int gDebugBle = FALSE;
 int gBleTombStone = FALSE;
 
+char* GATTTOOL_OPT[GRIB_MAX_SIZE_BRIEF];
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Function
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+
+int Grib_BleDetourInit(void)
+{//shbaek: Avoid Permission Error
+	int   iRes = GRIB_ERROR;
+	int   iSkipCount = 0;
+
+	const char* pCommand	= "sudo ./" BLE_GRIB_HCI_FILE_NAME " " BLE_GRIB_HCI_MENU_INIT;
+	char  pLineBuffer[SIZE_1M] = {'\0', };
+
+	iRes = systemCommand(pCommand, pLineBuffer, sizeof(pLineBuffer));
+	GRIB_LOGD("# BLE DETOUR INIT RESULT[%d]:\n%s\n", STRLEN(pLineBuffer), pLineBuffer+iSkipCount);
+	return iRes;
+}
 
 int Grib_BleConfig(void)
 {
@@ -25,8 +39,8 @@ int Grib_BleConfig(void)
 		return GRIB_ERROR;
 	}
 
-	gDebugBle  = pConfigInfo->debugBLE;
-	gBleTombStone = pConfigInfo->tombStoneBLE;
+	gDebugBle  = pConfigInfo->debugLevel;
+	gBleTombStone = pConfigInfo->tombStone;
 
 	if(gDebugBle)GRIB_LOGD("# BLE CONFIG DEBUG LOG: %d\n", gDebugBle);
 	if(gDebugBle)GRIB_LOGD("# BLE CONFIG TOMBSTONE: %d\n", gBleTombStone);
@@ -55,7 +69,11 @@ void Grib_BleTombStone(Grib_BleLogInfo* pLogInfo)
 												 sysTime->tm_year+1900, sysTime->tm_mon+1, sysTime->tm_mday,
 												 sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec, pLogInfo->blePipe);
 
-	GRIB_LOGD("# %s-TOMB: # STONE NAME: %s\n", pLogInfo->blePipe, pLogFilePath);
+
+	GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pLogInfo->blePipe);
+	GRIB_LOGD("# %s-BLE<: # LOG NAME: %c[1;31m%s%c[0m\n", pLogInfo->blePipe, 27, pLogFilePath, 27);
+	GRIB_LOGD("# %s-BLE<: # LOG MSG : %c[1;31m%s%c[0m\n", pLogInfo->blePipe, 27, pLogInfo->bleErrorMsg, 27);
+	GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pLogInfo->blePipe);
 
 	iFD = open(pLogFilePath, O_WRONLY|O_CREAT, 0666);
 
@@ -134,7 +152,7 @@ int Grib_BleCleanAll(void)
 	{
 		closedir(pDirInfo);
 	}
-	
+
 	return GRIB_DONE;
 }
 
@@ -192,6 +210,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 	pid_t processID = GRIB_ERROR;
 
 	const char* FUNC_TAG = "BLE-SEND";
+	char hexBuff[BLE_MAX_SIZE_SEND_MSG*2] = {'\0', };
 
 	if(deviceAddr==NULL || sendBuff==NULL || recvBuff==NULL)
 	{
@@ -201,7 +220,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 
 	if(pipeFileName == NULL)
 	{//shbaek: for TEST
-		pipeFileName = TEST_BLE_PIPE_FILE_NAME;
+		pipeFileName = "TEMP_PIPE_FILE";
 	}
 
 	if(iDBG)
@@ -210,6 +229,9 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 		GRIB_LOGD("# %s-BLE>: PIPE FILE     : %s\n", pipeFileName, pipeFileName);
 	}
 	GRIB_LOGD("# %s-BLE>: %s\n", pipeFileName, sendBuff);
+
+	Grib_StrToHex(sendBuff, hexBuff);
+	if(iDBG)GRIB_LOGD("# %s-BLE>: TO HEX: %s\n", pipeFileName, hexBuff);
 
 	processID = fork();
 	if(processID == GRIB_ERROR)
@@ -227,15 +249,10 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 	{
 		case 0:
 		{
-#if (FEATURE_GRIB_BLE_EX==ON)
-			//3 shbaek: Jump to Blecomm
+			//3 shbaek: Jump to Gatttool
 			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: JUMP BLE EXTEND\n", pipeFileName);
-			iRes = execl(BLE_FILE_PATH_BLECOMM_PROGRAM, BLE_FILE_PATH_BLECOMM_PROGRAM, deviceAddr, pipeFilePath, sendBuff, NULL);
-#else
-			//3 shbaek: Jump to Python
-			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: JUMP BLE PYTHON\n", pipeFileName);
-			iRes = execl(BLE_FILE_PATH_PYTHON_PROGRAM, BLE_FILE_PATH_PYTHON_PROGRAM, BLE_FILE_PATH_PYTHON_SCRIPT, deviceAddr, pipeFilePath, sendBuff, NULL);
-#endif
+			iRes = execl(BLE_FILE_PATH_GATTTOOL, BLE_FILE_PATH_GATTTOOL, deviceAddr, pipeFilePath, hexBuff, GATTTOOL_OPT, NULL);
+
 			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: DO YOU SEE ME???\n");
 			exit(iRes);
 			break;
@@ -267,7 +284,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 
 			iTotal = iCount = GRIB_INIT;
 			if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: WAITING FOR CHILD MSG ...\n", pipeFileName);
-			SLEEP(1);
+//			SLEEP(1);
 			do
 			{
 				iCount = read(pipeFileFD, recvBuff+iTotal, BLE_MAX_SIZE_RECV_MSG-iTotal);
@@ -301,7 +318,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 				if(WAIT_TRY_MAX < iWaitTry)
 				{//shbaek: Occur Critical Error, Will Defunct
 					GRIB_LOGD("# %s-SEND[PARENT]: ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
-					GRIB_LOGD("# %s-SEND[PARENT]: #####       CRITICAL ERROR          #####\n", pipeFileName);
+					GRIB_LOGD("# %s-SEND[PARENT]: #####       %c[1;31mCRITICAL ERROR%c[0m          #####\n", pipeFileName, 27, 27);
 					GRIB_LOGD("# %s-SEND[PARENT]: ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 					break;
 				}
@@ -339,12 +356,7 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 		bleLogInfo.bleRecvMsg	= recvBuff;
 		bleLogInfo.bleErrorMsg	= pError;
 
-		GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
-
 		Grib_BleTombStone(&bleLogInfo);
-
-		GRIB_LOGD("# %s-BLE<: # ERROR MSG : %s[%d]\n", pipeFileName, pError, iError);
-		GRIB_LOGD("# %s-BLE<: # ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
 
 		if(iError == BLE_ERROR_CODE_CRITICAL)
 		{//3 shbaek: HCI DRIVER RESET
@@ -360,20 +372,11 @@ int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* 
 	return iRes;
 }
 
-int Grib_BleDetourInit(void)
-{//shbaek: Avoid Permission Error
-	int   iRes = GRIB_ERROR;
-	int   iSkipCount = 0;
 
-	const char* pCommand	= "sudo ./" BLE_GRIB_HCI_FILE_NAME " " BLE_GRIB_HCI_MENU_INIT;
-	char  pLineBuffer[SIZE_1M] = {'\0', };
 
-	iRes = systemCommand(pCommand, pLineBuffer, sizeof(pLineBuffer));
-	GRIB_LOGD("# BLE DETOUR INIT RESULT[%d]:\n%s\n", STRLEN(pLineBuffer),pLineBuffer+iSkipCount);
-	return iRes;
-}
+#define __GRIB_BLE_DEVICE_API__
 
-int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
+int Grib_BleGetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 {
 	int   i = 0;
 	int	  iRes = GRIB_ERROR;
@@ -406,6 +409,13 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 	pRowDeviceInfo->deviceInterface = DEVICE_IF_TYPE_BLE;
 
 	STRINIT(pRowDeviceInfo->deviceLoc, sizeof(pRowDeviceInfo->deviceLoc));
+	STRNCPY(pRowDeviceInfo->deviceLoc, GRIB_STR_NOT_USED, STRLEN(GRIB_STR_NOT_USED));
+
+	STRINIT(pRowDeviceInfo->deviceDesc, sizeof(pRowDeviceInfo->deviceDesc));
+	STRNCPY(pRowDeviceInfo->deviceDesc, GRIB_STR_NOT_USED, STRLEN(GRIB_STR_NOT_USED));
+
+#if __NOT_USED__ //shbaek: Loc. Desc. -> TBD
+	STRINIT(pRowDeviceInfo->deviceLoc, sizeof(pRowDeviceInfo->deviceLoc));
 	iRes = Grib_BleGetDeviceLoc(deviceAddr, deviceID, pRowDeviceInfo->deviceLoc);
 	if(iRes != GRIB_DONE)
 	{
@@ -422,6 +432,7 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 		return GRIB_FAIL;
 	}
 	//pRowDeviceInfo->deviceDesc;
+#endif
 
 	STRINIT(recvBuff, sizeof(recvBuff));
 	iRes = Grib_BleGetReportCycle(deviceAddr, deviceID, recvBuff);
@@ -454,7 +465,6 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 		GRIB_LOGD("# BLE-INFO: GET FUNC NAME FAIL: %s\n", recvBuff);
 		return GRIB_FAIL;
 	}
-
 	for(i=0; i<funcCount; i++)
 	{
 		pRowDeviceFunc = pRowDeviceInfo->ppRowDeviceFunc[i];
@@ -501,8 +511,6 @@ int Grib_BleDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 
 }
 
-
-#define __GRIB_BLE_API__
 int Grib_BleGetDeviceID(char* deviceAddr, char* recvBuff)
 {
 	int   iRes = GRIB_ERROR;
@@ -687,3 +695,301 @@ int Grib_BleSetFuncData(char* deviceAddr, char* deviceID, char* funcName, char* 
 	return iRes;
 }
 
+
+#define __GRIB_BLE_ETC__
+int Grib_BleSendOnly(Grib_BleDeviceInfo* pBleDevice)
+{
+	const char* FUNC_TAG = "BLE-SENDo";
+	int iDBG = gDebugBle;
+	int iRes = GRIB_ERROR;
+
+	char optDevice[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+	char optHandle[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+	char optValue[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+
+	if(pBleDevice == NULL)
+	{
+		GRIB_LOGD("# %s: INVALID PARAM !!!\n", FUNC_TAG);
+		return GRIB_FAIL;
+	}
+
+	if(iDBG)GRIB_LOGD("# %s: [ADDR: %s] [HANDLE: %s] [VALUE: %s]\n", FUNC_TAG,
+		pBleDevice->addr, pBleDevice->handle, pBleDevice->sendMsg);
+
+	SNPRINTF(optDevice, sizeof(optDevice), "%s=%s",   BLE_GATT_OPT_DEVICE, pBleDevice->addr);
+	SNPRINTF(optHandle, sizeof(optHandle), "%s=0x%s", BLE_GATT_OPT_HANDLE, pBleDevice->handle);
+	SNPRINTF(optValue,  sizeof(optValue),  "%s=%s",   BLE_GATT_OPT_VALUE,  pBleDevice->sendMsg);
+
+	iRes = execl(BLE_FILE_PATH_GATTTOOL_EX, BLE_FILE_PATH_GATTTOOL_EX, optDevice, BLE_GATT_OPT_WRITE_ONLY, optHandle, optValue, NULL);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: GATTTOOL ERROR !!!\n", FUNC_TAG);
+		return iRes;
+	}
+
+	return iRes;
+}
+
+int Grib_BleSendReq(Grib_BleDeviceInfo* pBleDevice)
+{
+	const char* FUNC_TAG = "BLE-SENDr";
+	int iDBG = TRUE;//gDebugBle;
+	int iRes = GRIB_ERROR;
+	int iCount = 0;
+
+	char optDevice[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+	char optHandle[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+	char optValue[GRIB_MAX_SIZE_BRIEF] = {'\0', };
+
+	char  pipeBuff[SIZE_1K] = {0x00,};
+	int   pipeFileFD = -1;
+	char* pipeFileName = BLE_FILE_PATH_PIPE_ROOT "/" BLE_FILE_NAME_PIPE_TEMP;
+	char* pipeFilePath = pipeFileName;
+	if(pBleDevice == NULL)
+	{
+		GRIB_LOGD("# %s: INVALID PARAM !!!\n", FUNC_TAG);
+		return GRIB_FAIL;
+	}
+
+	if(iDBG)GRIB_LOGD("# %s: [ADDR: %s] [HANDLE: %s] [VALUE: %s]\n", FUNC_TAG,
+		pBleDevice->addr, pBleDevice->handle, pBleDevice->sendMsg);
+
+	SNPRINTF(optDevice, sizeof(optDevice), "%s=%s",   BLE_GATT_OPT_DEVICE, pBleDevice->addr);
+	SNPRINTF(optHandle, sizeof(optHandle), "%s=0x%s", BLE_GATT_OPT_HANDLE, pBleDevice->handle);
+	SNPRINTF(optValue,  sizeof(optValue),  "%s=%s",   BLE_GATT_OPT_VALUE,  pBleDevice->sendMsg);
+
+	iRes = execl(BLE_FILE_PATH_GATTTOOL_EX, BLE_FILE_PATH_GATTTOOL_EX, optDevice, BLE_GATT_OPT_WRITE_REQ, optHandle, optValue, NULL);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: GATTTOOL ERROR !!!\n", FUNC_TAG);
+		return iRes;
+	}
+	if(iDBG)GRIB_LOGD("# %s: EXECL DONE\n", FUNC_TAG);
+
+	iRes = Grib_BlePipeReCreate(pipeFileName);
+	if(iRes == GRIB_FAIL)
+	{
+		GRIB_LOGD("# %s: CREATE PIPE FAIL: %s[%d]\n", FUNC_TAG, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		return GRIB_ERROR;
+	}
+
+	if(iDBG)GRIB_LOGD("# %s: CREATE PIPE DONE\n", FUNC_TAG);
+	// Open PIPE File(Use Only Read Buffer)
+	pipeFileFD = open(pipeFilePath, O_RDONLY);
+	if(pipeFileFD < 0)
+	{
+		GRIB_LOGD("# %s: OPEN PIPE FAIL: %s[%d]\n", FUNC_TAG, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		return GRIB_ERROR;
+	}
+	if(iDBG)GRIB_LOGD("# %s: OPEN PIPE DONE\n", FUNC_TAG);
+
+	iCount = read(pipeFileFD, pipeBuff, sizeof(pipeBuff));
+	if(iDBG)GRIB_LOGD("# %s: READ COUNT: %d\n", FUNC_TAG, iCount);
+
+	return iRes;
+}
+
+
+int Grib_BleSendMsgEx(char* deviceAddr, char *pipeFileName, char* sendBuff, char* recvBuff)
+{
+	int iRes = GRIB_DONE;
+	int iDBG = gDebugBle;
+	int iCount = GRIB_INIT;
+	int iTotal = GRIB_INIT;
+	int iStatus = GRIB_ERROR;
+	int pipeFileFD = GRIB_ERROR;
+
+	char pipeFilePath[SIZE_1K] = {'\0', };
+
+	pid_t processID = GRIB_ERROR;
+
+	const char* FUNC_TAG = "BLE-SEND";
+
+	if(deviceAddr==NULL || sendBuff==NULL || recvBuff==NULL)
+	{
+		GRIB_LOGD("# %s: PARAM IS NULL\n", FUNC_TAG);
+		return GRIB_ERROR;
+	}
+
+	if(pipeFileName == NULL)
+	{//shbaek: for TEST
+		pipeFileName = "TEMP_PIPE_FILE";
+	}
+
+	if(iDBG)
+	{
+		GRIB_LOGD("# %s-BLE>: DEVICE ADDR   : %s\n", pipeFileName, deviceAddr);
+		GRIB_LOGD("# %s-BLE>: PIPE FILE     : %s\n", pipeFileName, pipeFileName);
+	}
+	GRIB_LOGD("# %s-BLE>: %s\n", pipeFileName, sendBuff);
+
+	processID = fork();
+	if(processID == GRIB_ERROR)
+	{
+		GRIB_LOGD("# %s-BLE>: PROCESS FORK FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		return GRIB_ERROR;
+	}
+	if(iDBG)GRIB_LOGD("# %s-BLE>: FORK PROCESS ID: %d\n", pipeFileName, processID);
+
+	STRINIT(pipeFilePath, sizeof(pipeFilePath));
+	SNPRINTF(pipeFilePath, sizeof(pipeFilePath), "%s/%s", BLE_FILE_PATH_PIPE_ROOT, pipeFileName);
+	if(iDBG)GRIB_LOGD("# %s-BLE>: PIPE FILE PATH: %s\n", pipeFileName, pipeFilePath);
+
+	switch(processID)
+	{
+		case 0:
+		{
+			//3 shbaek: Jump to Gatttool
+			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: JUMP BLE EXTEND\n", pipeFileName);
+			if(iDBG)Grib_ShowCurrDateTime();
+
+			iRes = execl(BLE_FILE_PATH_GATTTOOL, BLE_FILE_PATH_GATTTOOL, deviceAddr, pipeFilePath, sendBuff, NULL);
+
+			if(iDBG)GRIB_LOGD("# %s-SEND[CHILD]: DO YOU SEE ME???\n");
+			exit(iRes);
+			break;
+		}
+
+		default:
+		{
+			int iWaitTry = 0;
+			const int WAIT_TRY_MAX = 5;
+			const int WAIT_TRY_DELAY = 3;
+
+			const int READ_INTERVAL = 100;
+			int READ_TOTAL_TIME = (BLE_GATTTOOL_TIMEOUT+2) * 1000; //shbaek: 2 -> Timming ...
+
+			if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: CREATE PIPE\n", pipeFileName);
+
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+			iRes = Grib_BlePipeReCreate(pipeFilePath);
+			if(iRes == GRIB_FAIL)
+			{
+				GRIB_LOGD("# %s-SEND[PARENT]: CREATE PIPE FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+				return GRIB_ERROR;
+			}
+
+			if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: OPEN PIPE\n", pipeFileName);
+			// Open PIPE File(Use Only Read Buffer)
+			pipeFileFD = open(pipeFilePath, O_RDONLY | O_NOCTTY | O_NONBLOCK);
+			if(pipeFileFD < 0)
+			{
+				GRIB_LOGD("# %s-SEND[PARENT]: OPEN PIPE FAIL: %s[%d]\n", pipeFileName, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+				return GRIB_ERROR;
+			}
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+			if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: WAITING FOR RETURN CHILD[PID:%d]\n", pipeFileName, processID);
+			do{
+				processID = wait(&iStatus);
+				if(processID != GRIB_FAIL)
+				{//shbaek: OK
+					break;
+				}
+
+				if(WAIT_TRY_MAX < iWaitTry)
+				{//shbaek: Occur Critical Error, Will Defunct
+					GRIB_LOGD("# %s-SEND[PARENT]: ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+					GRIB_LOGD("# %s-SEND[PARENT]: #####       %c[1;31mCRITICAL ERROR%c[0m          #####\n", pipeFileName, 27, 27);
+					GRIB_LOGD("# %s-SEND[PARENT]: ##### ##### ##### ##### ##### ##### #####\n", pipeFileName);
+					break;
+				}
+
+				iWaitTry++;
+				GRIB_LOGD("# %s-SEND[PARENT]: WAIT FAIL RE-TRY: %d\n", pipeFileName, iWaitTry);
+				SLEEP(WAIT_TRY_DELAY);
+			}while(TRUE);
+			if(iDBG)Grib_ShowCurrDateTime();
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+			iTotal = iCount = GRIB_INIT;
+			MEMSET(recvBuff, 0x00, BLE_MAX_SIZE_RECV_MSG);
+			do
+			{
+				if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: READ CHILD MSG ...\n", pipeFileName);
+
+				iCount = read(pipeFileFD, recvBuff+iTotal, BLE_MAX_SIZE_RECV_MSG-iTotal);
+//				GRIB_LOGD("# %s-SEND[PARENT]: READ COUNT: %d\n", pipeFileName, iCount);
+
+				if(iCount < 0)
+				{
+					GRIB_LOGD("# %s-SEND[PARENT]: READ FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
+					break;
+				}
+				else if(iCount == 0)
+				{
+					if(iTotal!=0)
+					{//shbaek: Read Something ...
+						if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: READ DONE\n", pipeFileName);
+						break;
+					}
+				}
+				else
+				{
+					iTotal += iCount;
+					if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: READ:%d TOTAL:%d\n", pipeFileName, iCount, iTotal);
+				}
+
+//				GRIB_LOGD("# %s-SEND[PARENT]: READ DELAY: %d\n", pipeFileName, READ_TOTAL_TIME);
+
+				if(READ_INTERVAL < READ_TOTAL_TIME)mSleep(READ_INTERVAL);
+				else
+				{//shbaek: Read Timeout !!!
+					if(iTotal == 0)
+					{//shbaek: Something Wrong ...
+						SNPRINTF(recvBuff, BLE_MAX_SIZE_RECV_MSG, "%s:%d", GRIB_STR_ERROR, BLE_ERROR_CODE_READ_TIMEOUT);
+					}
+					break;
+				}
+				READ_TOTAL_TIME -= READ_INTERVAL;
+
+			}while(iTotal < BLE_MAX_SIZE_RECV_MSG);
+			//iRes = kill(processID, SIGKILL);
+//			Grib_ShowCurrDateTime();
+			//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+
+			if(iDBG)GRIB_LOGD("# %s-SEND[PARENT]: CHILD IS DONE PID:%d STATUS:%d\n", pipeFileName, processID, iStatus);
+
+			if(0 < pipeFileFD)
+			{
+				close(pipeFileFD);
+				pipeFileFD = GRIB_ERROR;
+			}
+
+			break;
+		}
+	}
+
+	GRIB_LOGD("# %s-BLE<: %s\n", pipeFileName, recvBuff);
+
+	if(STRNCASECMP(recvBuff, BLE_RESPONSE_STR_ERROR, STRLEN(BLE_RESPONSE_STR_ERROR)) == 0)
+	{
+		Grib_BleErrorCode iError = (Grib_BleErrorCode) ATOI(&STRCHR(recvBuff, GRIB_COLON)[1]);
+		const char* pError = Grib_BleErrorToStr(iError);
+
+		Grib_BleLogInfo bleLogInfo;
+		MEMSET(&bleLogInfo, 0x00, sizeof(Grib_BleLogInfo));
+
+		bleLogInfo.blePipe		= pipeFileName;
+		bleLogInfo.bleAddr		= deviceAddr;
+		bleLogInfo.bleSendMsg	= sendBuff;
+		bleLogInfo.bleRecvMsg	= recvBuff;
+		bleLogInfo.bleErrorMsg	= pError;
+
+		Grib_BleTombStone(&bleLogInfo);
+
+		if(iError == BLE_ERROR_CODE_CRITICAL)
+		{//3 shbaek: HCI DRIVER RESET
+			Grib_BleDetourInit();
+		}
+
+		iRes = GRIB_FAIL;
+	}
+
+	//shbaek: Need Interval Time, After Pipe Close.
+	unlink(pipeFilePath);
+
+	return iRes;
+}

@@ -5,6 +5,7 @@
 //shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #include "grib_define.h"
+#include "grib_config.h"
 #include "grib_util.h"
 #include "grib_http.h"
 
