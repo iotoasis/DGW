@@ -21,7 +21,6 @@ int  gSqlPort;
 shbaek: Function
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 
-
 #define __GRIB_DB_COMMON__
 
 int Grib_DbInfoLoad(void)
@@ -352,7 +351,7 @@ int Grib_DbQuery(Grib_SqlInfo* pSQL, char* sqlQuery)
 		goto ERROR;
 	}
 
-	pSQL->result = mysql_store_result(pSQL->connect);
+	//pSQL->result = mysql_store_result(pSQL->connect);
 
 	if(iDBG)GRIB_LOGD("%s QUERY DONE ...\n", LOG_TAG_DB);
 
@@ -389,6 +388,8 @@ int Grib_DbGetRowCount(Grib_SqlInfo* pSQL)
 
 int Grib_DbClose(void)
 {
+	const int iDBG = FALSE;
+
 	if(gSqlConnect == NULL)
 	{
 		return GRIB_ERROR;
@@ -402,12 +403,14 @@ int Grib_DbClose(void)
 	gSqlPort    = 0;
 	gSqlConnect = NULL;
 
-	GRIB_LOGD("%s CLOSE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CLOSE DONE\n", LOG_TAG_DB);
 
 	return GRIB_DONE;
 }
 int Grib_DbOpen(void)
 {
+	const int iDBG = FALSE;
+
 	if(gSqlConnect != NULL)
 	{
 		Grib_DbClose();
@@ -417,7 +420,7 @@ int Grib_DbOpen(void)
 
 	gSqlConnect = mysql_init(GRIB_NOT_USED);
 
-	GRIB_LOGD("%s MYSQL VERSION: %s\n", LOG_TAG_DB, mysql_get_client_info());
+	if(iDBG)GRIB_LOGD("%s MYSQL VERSION: %s\n", LOG_TAG_DB, mysql_get_client_info());
 
 	gSqlConnect = mysql_real_connect(gSqlConnect, gSqlHost, 
 							gSqlUser, gSqlPswd,
@@ -430,20 +433,22 @@ int Grib_DbOpen(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s MYSQL CONNECTED\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s MYSQL CONNECTED\n", LOG_TAG_DB);
 
 	return GRIB_DONE;
 }
 
 int Grib_DbCreate(void)
 {
+	const int iDBG = FALSE;
+
 	int iRes = GRIB_ERROR;
 
 	Grib_DbInfoLoad();
 
 	gSqlConnect = mysql_init(GRIB_NOT_USED);
 
-	GRIB_LOGD("%s MYSQL VERSION: %s\n", LOG_TAG_DB, mysql_get_client_info());
+	if(iDBG)GRIB_LOGD("%s MYSQL VERSION: %s\n", LOG_TAG_DB, mysql_get_client_info());
 
 	//shbaek: Connect
 	gSqlConnect = mysql_real_connect(gSqlConnect, gSqlHost, 
@@ -456,7 +461,7 @@ int Grib_DbCreate(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s MYSQL CONNECTED\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s MYSQL CONNECTED\n", LOG_TAG_DB);
 
 	//shbaek: Create DB
 	iRes = mysql_query(gSqlConnect, QUERY_DB_CREATE);
@@ -466,7 +471,7 @@ int Grib_DbCreate(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE DB DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE DB DONE\n", LOG_TAG_DB);
 
 	//shbaek: Choose DB
 	iRes = mysql_query(gSqlConnect, QUERY_DB_USE);
@@ -476,7 +481,7 @@ int Grib_DbCreate(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s USE DB DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s USE DB DONE\n", LOG_TAG_DB);
 
 	//shbaek: Create Device Info Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_DEVICE_INFO);
@@ -486,7 +491,7 @@ int Grib_DbCreate(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE DEVICE TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE DEVICE TABLE DONE\n", LOG_TAG_DB);
 
 	//shbaek: Create Device func Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_DEVICE_FUNC);
@@ -496,7 +501,7 @@ int Grib_DbCreate(void)
 			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE FUNC TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE FUNC TABLE DONE\n", LOG_TAG_DB);
 
 	//shbaek: Create Config Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_CONFIG);
@@ -505,7 +510,7 @@ int Grib_DbCreate(void)
 		GRIB_LOGD("%s CREATE CONFIG TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE CONFIG TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE CONFIG TABLE DONE\n", LOG_TAG_DB);
 
 	//shbaek: Create Cache Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_CACHE_RI);
@@ -514,7 +519,7 @@ int Grib_DbCreate(void)
 		GRIB_LOGD("%s CREATE CACHE TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE CACHE TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE CACHE TABLE DONE\n", LOG_TAG_DB);
 
 	//shbaek: Create Scan Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_SCAN_DEVICE);
@@ -523,13 +528,15 @@ int Grib_DbCreate(void)
 		GRIB_LOGD("%s CREATE SCAN TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
 //		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s CREATE SCAN TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE SCAN TABLE DONE\n", LOG_TAG_DB);
 
 	return iRes;
 }
 
 int Grib_DbDrop(void)
 {
+	const char* FUNC = "DB-DROP";
+	const int iDBG = FALSE;
 	int iRes = GRIB_ERROR;
 
 	if(gSqlConnect == NULL)
@@ -545,11 +552,11 @@ int Grib_DbDrop(void)
 	iRes = mysql_query(gSqlConnect, QUERY_DB_DROP);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s DROP DB FAIL: %s[%d]\n", LOG_TAG_DB, 
-			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		GRIB_LOGD("# %s: %c[1;31m%s[%d]%c[0m\n", FUNC, 
+			27, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect), 27);
 		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s DROP DB DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s DROP DB DONE\n", LOG_TAG_DB);
 
 	return iRes;
 }
@@ -559,10 +566,10 @@ int Grib_DbDrop(void)
 
 int Grib_DbSetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 {
+	const char* FUNC = "SET-DEVICE";
 	int iRes = GRIB_ERROR;
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 
-	GRIB_LOGD("%s SET DEVICE INFO\n", LOG_TAG_DB);
 	if(gSqlConnect == NULL)
 	{
 		iRes = Grib_DbOpen();
@@ -579,16 +586,15 @@ int Grib_DbSetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo)
 							pRowDeviceInfo->deviceLoc, pRowDeviceInfo->deviceDesc,
 							pRowDeviceInfo->reportCycle);
 
-	GRIB_LOGD("%s QUERY: %s\n", LOG_TAG_DB, sqlQuery);
+	Grib_DebugLog(FUNC, sqlQuery);
 
 	iRes = mysql_query(gSqlConnect, sqlQuery);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s SET DEVICE INFO FAIL: %s[%d]\n", LOG_TAG_DB, 
-			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		GRIB_LOGD("# %s: %c[1;31m%s[%d]%c[0m\n", FUNC, 
+			27, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect), 27);
 		return GRIB_ERROR;
 	}
-	GRIB_LOGD("%s SET DEVICE INFO DONE\n", LOG_TAG_DB);
 
 	return iRes;
 }
@@ -717,8 +723,10 @@ int Grib_DbFreeRowFunc(Grib_DbRowDeviceFunc** ppRowDeviceFunc, int iRowCount)
 
 int Grib_DbSetDeviceFunc(Grib_DbRowDeviceFunc* pRowDeviceFunc)
 {
+	const char* FUNC = "SET-FUNC";
+
 	int iRes = GRIB_ERROR;
-	int iDBG = TRUE;
+	int iDBG = FALSE;
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 
 	if(iDBG)GRIB_LOGD("%s SET DEVICE FUNC\n", LOG_TAG_DB);
@@ -740,7 +748,7 @@ int Grib_DbSetDeviceFunc(Grib_DbRowDeviceFunc* pRowDeviceFunc)
 
 	SNPRINTF(sqlQuery, MYSQL_MAX_SIZE_QUERY, QUERY_INSERT_DEVICE_FUNC, pRowDeviceFunc->deviceID, 
 							pRowDeviceFunc->funcName, pRowDeviceFunc->funcAttr);
-	if(iDBG)GRIB_LOGD("%s QUERY: %s\n", LOG_TAG_DB, sqlQuery);
+	Grib_DebugLog(FUNC, sqlQuery);
 
 	iRes = mysql_query(gSqlConnect, sqlQuery);
 	if(iRes != GRIB_DONE)

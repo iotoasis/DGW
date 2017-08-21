@@ -71,6 +71,9 @@ FINAL:
 
 int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 {
+	const char* FUNC = "DEVICE-REGI";
+	const int 	iDBG = FALSE;
+
 	int i = 0;
 	int iRes = GRIB_ERROR;
 	
@@ -91,7 +94,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	MEMSET(&rowDeviceInfo, GRIB_INIT, sizeof(rowDeviceInfo));
 	STRNCPY(rowDeviceInfo.deviceAddr, deviceAddr, STRLEN(deviceAddr));
 
-	GRIB_LOGD("# ##### ##### ##### ##### CREATE DATABASE  ##### ##### ##### #####\n");
+	if(iDBG)GRIB_LOGD("# ##### ##### ##### ##### CREATE DATABASE  ##### ##### ##### #####\n");
 	iRes = Grib_DbCreate();
 	if(iRes != GRIB_DONE)
 	{
@@ -131,7 +134,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 		//shbaek: You Must be Set Server Config.
 		Grib_SiSetServerConfig();
 
-		if(optAuth == AUTH_REGI_OPT_PW_OVER_WRITE)
+		if(optAuth & REGI_OPT_PW_OVER_WRITE)
 		{
 			GRIB_LOGD("# TRY AUTH REGI ...\n");
 
@@ -141,7 +144,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 				GRIB_LOGD("# AUTH REGI FAIL ...\n");
 			}
 		}
-		else if(optAuth == AUTH_REGI_OPT_PW_RE_USED)
+		else if(optAuth & REGI_OPT_PW_RE_USED)
 		{
 			iRes = Grib_AuthGetPW(rowDeviceInfo.deviceID, pAuthKey);
 		}
@@ -153,12 +156,15 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 #endif
 		GRIB_LOGD("# DEVICE REGI: %s GET AUTH KEY: %s\n", rowDeviceInfo.deviceID, pAuthKey);
 
-		GRIB_LOGD("# ##### ##### ##### ##### CREATE ONEM2M TREE  ##### ##### ##### #####\n");
-		iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
-		if(iRes != GRIB_DONE)
+		if(optAuth & REGI_OPT_CREATE_RESOURCE)
 		{
-			GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
-			goto FINAL;
+			GRIB_LOGD("# ##### ##### ##### ##### CREATE ONEM2M TREE  ##### ##### ##### #####\n");
+			iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
+			if(iRes != GRIB_DONE)
+			{
+				GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
+				goto FINAL;
+			}
 		}
 	}
 	else
@@ -191,6 +197,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	}
 
 FINAL:
+	GRIB_LOGD("# ##### ##### ##### ##### DEVICE REGI DONE   ##### ##### ##### #####\n");
 
 	Grib_DbFreeRowFunc(rowDeviceInfo.ppRowDeviceFunc, rowDeviceInfo.deviceFuncCount);
  	Grib_DbClose();
@@ -230,7 +237,8 @@ int Grib_DeviceDeRegi(char* deviceID, int delOneM2M)
 		MEMSET(&resParam, GRIB_INIT, sizeof(OneM2M_ResParam));
 
 		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		SNPRINTF(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", pConfigInfo->hubID);
+//		SNPRINTF(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", pConfigInfo->hubID);
+		STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
 		STRINIT(reqParam.xM2M_AeName, sizeof(reqParam.xM2M_AeName));
 		STRNCPY(reqParam.xM2M_AeName, deviceID, STRLEN(deviceID));

@@ -21,7 +21,9 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"170421_BLE_HUB_3rd"
+#define GRIB_HUB_VERSION					"1700703_USE_DNS"
+#define GRIB_PLATFORM_SERVER_DOMAIN		"si.iotoasis.org"
+#define GRIB_PLATFORM_SERVER_PORT			8080
 
 #ifndef FALSE
 #define FALSE								0
@@ -105,6 +107,9 @@ shbaek: Define Constant
 #define GRIB_STR_ERROR									"ERROR"
 #define GRIB_STR_NOT_USED								"NOT_USED"
 
+#define GRIB_STR_SUCCESS_L							"success"
+#define GRIB_STR_FAILURE_L							"failure"
+
 #define GRIB_STR_TIME_FORMAT 							"%04d%02d%02dT%02d%02d%02d"
 
 #define GRIB_BOOL_TO_STR(iValue)						(iValue==TRUE?"TRUE":iValue==FALSE?"FALSE":"INVALID")
@@ -125,7 +130,9 @@ shbaek: Define Constant
 #define GRIB_MAX_SIZE_LONG							512
 #define GRIB_MAX_SIZE_DLONG							1024
 
-#define GRIB_MAX_SIZE_TIME_STR						16
+#define GRIB_MAX_SIZE_BLE_ADDR_STR					17	//shbaek: 12(STRING)+5(:)
+#define GRIB_MAX_SIZE_BLE_NAME_STR					24	//shbaek: BLE Module Name
+#define GRIB_MAX_SIZE_TIME_STR						16	//shbaek: YYYYMMDD:HHMMSS
 #define GRIB_MAX_SIZE_IP_STR							GRIB_MAX_SIZE_BRIEF
 #define GRIB_MAX_SIZE_URI								SIZE_1K
 #define GRIB_MAX_SIZE_AUTH_KEY						128 //shbaek: Just In Case ...
@@ -155,7 +162,7 @@ shbaek: for Readability
 #endif
 
 #ifndef FREE
-#define FREE(pMem)										do{free((void *)pMem);\
+#define FREE(pMem)										do{if(pMem!=NULL)free((void *)pMem);\
 															pMem=NULL;}while(FALSE)
 #endif
 
@@ -193,6 +200,10 @@ shbaek: for Readability
 
 #ifndef STRCHR
 #define STRCHR(strSrc, charSearch)					strchr((char *)strSrc, charSearch)
+#endif
+
+#ifndef STRTRIM
+#define STRTRIM(strSrc, charSearch)					trim((char *)strSrc)
 #endif
 
 #ifndef STRCAT
@@ -255,6 +266,16 @@ shbaek: for Readability
 #define LINUX_ERROR_STR								strerror(errno)
 #endif
 
+inline void STRNSET(char* strDes, const char* strSrc, int BuffSize)
+{
+	if( !strDes || !strSrc || !BuffSize )return;
+
+	STRINIT(strDes, BuffSize);
+	if(STRLEN(strSrc)<BuffSize)STRNCPY(strDes, strSrc, STRLEN(strSrc));
+
+	return;
+}
+
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Type Define
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -313,6 +334,17 @@ typedef enum
 	BLE_ERROR_CODE_MAX
 }Grib_BleErrorCode;
 
+typedef struct
+{
+	int  index;
+
+	char addr[GRIB_MAX_SIZE_BLE_ADDR_STR+1];
+	char name[GRIB_MAX_SIZE_SHORT];
+	char memo[GRIB_MAX_SIZE_MIDDLE];
+
+	unsigned int type;	//shbaek: Peer Address Type
+}Grib_ScanDevInfo;
+
 typedef struct tm TimeInfo;
 typedef unsigned char byte;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
@@ -328,7 +360,7 @@ shbaek: Constance Define - Feature Dependency
 
 
 #define GRIB_WAIT_BLE_REUSE_TIME						1
-#define GRIB_CONTROL_FAIL_WAIT_TIME_SEC				5
+#define GRIB_CONTROL_FAIL_WAIT_TIME_SEC				1
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: About Log

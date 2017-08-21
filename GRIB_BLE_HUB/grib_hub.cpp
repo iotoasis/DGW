@@ -11,6 +11,7 @@ shbaek: Include File
 #include "grib_regi.h"
 #include "grib_thread.h"
 #include "grib_auth.h"
+#include "grib_log.h"
 
 #include "grib_test.h"
 
@@ -276,14 +277,24 @@ void Grib_MenuRegi(int argc, char **argv)
 	{
 		option = argv[GRIB_CMD_ARG1];
 
+		if(STRNCASECMP(option, "SERVER", STRLEN("SERVER"))==0)
+		{//shbaek: Create OneM2M Server Resource
+			optAuth = REGI_OPT_CREATE_RESOURCE;
+		}
+	}
+
+	if(GRIB_CMD_ARG2 < argc)
+	{
+		option = argv[GRIB_CMD_ARG2];
+
 		if(STRNCASECMP(option, "NEW", STRLEN("NEW"))==0)
 		{//shbaek: Regi Hub Self
-			optAuth = AUTH_REGI_OPT_PW_OVER_WRITE;
+			optAuth |= REGI_OPT_PW_OVER_WRITE;
 		}
 
 		if(STRNCASECMP(option, "RE", STRLEN("RE"))==0)
 		{//shbaek: Regi Hub Self
-			optAuth = AUTH_REGI_OPT_PW_RE_USED;
+			optAuth |= REGI_OPT_PW_RE_USED;
 		}
 	}
 
@@ -314,7 +325,7 @@ void Grib_MenuDeRegi(int argc, char **argv)
 	{
 		option = argv[GRIB_CMD_ARG1];
 
-		if(STRNCASECMP(option, "ALL", STRLEN("ALL"))==0)
+		if(STRNCASECMP(option, "SERVER", STRLEN("SERVER"))==0)
 		{//shbaek: Regi Hub Self
 			delOneM2M = TRUE;
 		}
@@ -335,7 +346,7 @@ void Grib_MenuBle(int argc, char **argv)
 
 	subMenu = GRIB_CMD_SUB[argv];
 
-	//Grib_BleConfig();
+	Grib_BleConfig();
 
 	if(STRCASECMP(subMenu, "init") == 0)
 	{
@@ -378,7 +389,7 @@ void Grib_MenuBle(int argc, char **argv)
 		//GRIB_LOGD("# RECV MSG[%03d]: %s\n", STRLEN(recvBuff), recvBuff);
 	}
 
-	if(STRCASECMP(subMenu, "only") == 0)
+	if(STRCASECMP(subMenu, "raw") == 0)
 	{
 		char* deviceAddr = argv[GRIB_CMD_ARG1];
 		char* charHandle = argv[GRIB_CMD_ARG2];
@@ -386,20 +397,20 @@ void Grib_MenuBle(int argc, char **argv)
 
 		char* hexBuff = NULL;
 
-		Grib_BleDeviceInfo bleDevice;
+		Grib_BleMsgInfo bleMsg;
 
-		MEMSET(&bleDevice, 0x00, sizeof(bleDevice));
+		MEMSET(&bleMsg, 0x00, sizeof(bleMsg));
 
 		hexBuff = (char*)MALLOC(STRLEN(strBuff)*2+1);
 		Grib_StrToHex(strBuff, hexBuff);
 
-		STRNCPY(bleDevice.addr, deviceAddr, STRLEN(deviceAddr));
-		STRNCPY(bleDevice.handle, charHandle, STRLEN(charHandle));
+		STRNCPY(bleMsg.addr, deviceAddr, STRLEN(deviceAddr));
+		STRNCPY(bleMsg.handle, charHandle, STRLEN(charHandle));
 
-		bleDevice.sendMsg = hexBuff;
-		bleDevice.label = "TEST";
+		bleMsg.sendMsg = hexBuff;
+		bleMsg.label = "TEST";
 
-		Grib_BleSendOnly(&bleDevice);
+		Grib_BleSendRaw(&bleMsg);
 	}
 
 	if(STRCASECMP(subMenu, "req") == 0)
@@ -410,21 +421,52 @@ void Grib_MenuBle(int argc, char **argv)
 
 		char* hexBuff = NULL;
 
-		Grib_BleDeviceInfo bleDevice;
+		Grib_BleMsgInfo bleMsg;
 
-		MEMSET(&bleDevice, 0x00, sizeof(bleDevice));
+		MEMSET(&bleMsg, 0x00, sizeof(bleMsg));
 
 		hexBuff = (char*)MALLOC(STRLEN(strBuff)*2+1);
 		Grib_StrToHex(strBuff, hexBuff);
 
-		STRNCPY(bleDevice.addr, deviceAddr, STRLEN(deviceAddr));
-		STRNCPY(bleDevice.handle, charHandle, STRLEN(charHandle));
+		STRNCPY(bleMsg.addr, deviceAddr, STRLEN(deviceAddr));
+		STRNCPY(bleMsg.handle, charHandle, STRLEN(charHandle));
 
-		bleDevice.sendMsg = hexBuff;
-		bleDevice.label = "TEST";
+		bleMsg.sendMsg = hexBuff;
+		bleMsg.label = "TEST";
 
-		Grib_BleSendReq(&bleDevice);
+		Grib_BleSendReq(&bleMsg);
 	}
+
+	if(STRCASECMP(subMenu, "char") == 0)
+	{
+		char* deviceAddr = argv[GRIB_CMD_ARG1];
+		char* findHandle = argv[GRIB_CMD_ARG2];
+
+		char* pipeFile = NULL;
+
+		Grib_BleMsgInfo bleMsg;
+
+		MEMSET(&bleMsg, 0x00, sizeof(bleMsg));
+
+		if(GRIB_CMD_ARG3 < argc)
+		{
+			if(0<STRLEN(argv[GRIB_CMD_ARG3]))pipeFile = argv[GRIB_CMD_ARG3];
+			//else pipeFile = "TEST_PIPE";
+		}
+
+		STRNCPY(bleMsg.addr, deviceAddr, STRLEN(deviceAddr));
+		STRNCPY(bleMsg.findHandle, findHandle, STRLEN(findHandle));
+
+		bleMsg.pipe = pipeFile;
+		bleMsg.peerType = BLE_PEER_TYPE_PUBLIC;
+		bleMsg.label = "TEST";
+
+		Grib_BleGetCharHandler(&bleMsg);
+
+		GRIB_LOGD("# MENU-BLE: [MAIN: %s] [SUB: %s] DONE ...\n", argv[GRIB_CMD_MAIN], argv[GRIB_CMD_SUB]);
+	}
+
+
 
 	return;
 }
@@ -500,7 +542,7 @@ LOOP_TEST:
 
 		if(iLoop<MAX_LOOP_COUNT) goto LOOP_TEST;
 	}
-	if(STRCASECMP(subMenu, "all") == 0)
+	if(STRCASECMP(subMenu, "device") == 0)
 	{
 		pDbAll = &dbAll;
 		MEMSET(pDbAll, 0x00, sizeof(Grib_DbAll));
@@ -1069,7 +1111,10 @@ void Grib_MenuTest(int argc, char **argv)
 
 		if(STRLEN(argv[GRIB_CMD_ARG1]) <= 0)
 		{
-			srcText = "Grib Test Base 64 Text";
+			srcText = 	"{\r\n" \
+						"    \"exec_id\" :\"0123456789abcdefABCDEF_~+-=\",\r\n" \
+						"    \"data\" : \"1\",\r\n" \
+						"}";
 		}
 		else
 		{
@@ -1139,22 +1184,10 @@ void Grib_MenuTest(int argc, char **argv)
 
 		binBuff = (char*) MALLOC(binSize);
 
-		Grib_HexToBin(hexBuff, binBuff);
+		Grib_HexToBin(hexBuff, binBuff, STRLEN(hexBuff));
 
 		GRIB_LOGD("# HEX BUFF: %s [%d]\n", hexBuff, STRLEN(hexBuff));
 		Grib_PrintOnlyHex(binBuff, binSize);
-	}
-
-	if(STRCASECMP(subMenu, "cmd") == 0)
-	{
-		char* pCommand = "free -b";
-		char  pBuffer[SIZE_1M] = {'\0', };
-
-		GRIB_LOGD("# SYSTEM COMMAND: %s\n", pCommand);
-		systemCommand(pCommand, pBuffer, sizeof(pBuffer));
-		GRIB_LOGD(GRIB_1LINE_DASH);
-		GRIB_LOGD(pBuffer);
-		GRIB_LOGD(GRIB_1LINE_DASH);
 	}
 
 	if(STRCASECMP(subMenu, "stack") == 0)
@@ -1163,6 +1196,99 @@ void Grib_MenuTest(int argc, char **argv)
 
 		return;
 	}
+
+	if(STRCASECMP(subMenu, "cmd") == 0)
+	{
+		const char* FUNC = "CMD-TEST";
+
+		const char* JSON0 = "application/json:0";
+		const char* JSON1 = "application/json:1";
+		const char* TEXT0 = "text/plain:0";
+		const char* TEXT1 = "text/plain:1";
+
+		const char* JCON0 = "{\r\n" \
+						   "    \"exec_id\": \"0123456789abcdefABCDEF_~+-=\",\r\n" \
+						   "    \"data\" : \"1\",\r\n" \
+						   "}";
+		const char* JCON1 = "ew0KICAgICJleGVjX2lkIiA6IjAxMjM0NTY3ODlhYmNkZWZBQkNERUZffistPSIsDQogICAgImRhdGEiIDogIjEiLA0KfQ==";
+		const char* TCON0 = "1";
+		const char* TCON1 = "MQ==";
+
+		OneM2M_ResParam resParam;
+		char* arg1 = NULL;
+
+		if(GRIB_CMD_ARG1 < argc)
+		{
+			arg1 = argv[GRIB_CMD_ARG1];
+		}
+		else
+		{
+			arg1 = "0";
+		}
+
+		GRIB_LOGD("# %s: SUB MENU: %s\n", FUNC, arg1);
+
+		MEMSET(&resParam, 0x00, sizeof(OneM2M_ResParam));
+
+		if(STRCASECMP(arg1, "JSON0") == 0)
+		{
+			STRNCPY(resParam.xM2M_ContentInfo, JSON0, STRLEN(JSON0));
+			STRNCPY(resParam.xM2M_Content, JCON0, STRLEN(JCON0));
+		}
+		if(STRCASECMP(arg1, "JSON1") == 0)
+		{
+			STRNCPY(resParam.xM2M_ContentInfo, JSON1, STRLEN(JSON1));
+			STRNCPY(resParam.xM2M_Content, JCON1, STRLEN(JCON1));
+		}
+		if(STRCASECMP(arg1, "TEXT0") == 0)
+		{
+			STRNCPY(resParam.xM2M_ContentInfo, TEXT0, STRLEN(TEXT0));
+			STRNCPY(resParam.xM2M_Content, TCON0, STRLEN(TCON0));
+		}
+		if(STRCASECMP(arg1, "TEXT1") == 0)
+		{
+			STRNCPY(resParam.xM2M_ContentInfo, TEXT1, STRLEN(TEXT1));
+			STRNCPY(resParam.xM2M_Content, TCON1, STRLEN(TCON1));
+		}
+
+		Grib_CmdRequestParser(&resParam);
+
+		Grib_InfoLog(FUNC, resParam.xM2M_ContentInfo);
+		Grib_InfoLog(FUNC, resParam.cmdReq_ExecID);
+		Grib_InfoLog(FUNC, resParam.xM2M_Content);
+		GRIB_LOGD("# %s: DONE  ...\n", FUNC);
+
+		return;
+	}
+
+	if(STRCASECMP(subMenu, "dns") == 0)
+	{
+		char* url = argv[GRIB_CMD_ARG1];
+		hostent* pHost = NULL;
+		int i = 0;
+
+		pHost = gethostbyname(url);
+		if(!pHost)
+		{
+			Grib_ErrLog("TEST-DNS", "GET HOST NAME FAIL !!!");
+			return;
+		}
+
+		for(i=0; pHost->h_addr_list[i]!=NULL; i++)
+		{
+			const char* ipAddr = inet_ntoa( *(struct in_addr*)pHost->h_addr_list[i]);
+
+			GRIB_LOGD("# TEST-DNS: HOST[%02d] NAME: %s\n", i, pHost->h_name);
+			GRIB_LOGD("# TEST-DNS: HOST[%02d] ADDR: %s\n", i, ipAddr);
+			GRIB_LOGD("\n");
+		}
+
+		//inet_ntoa( *(struct in_addr*)pHost->h_addr_list[i])
+
+		return;
+	}
+
+	
 
 	return;
 }

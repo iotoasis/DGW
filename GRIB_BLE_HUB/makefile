@@ -21,6 +21,11 @@ COM_INC		= 	-Iinclude						\
 COM_LIB		=	-L/usr/lib/arm-linux-gnueabihf	\
 				-lz -lm -ldl
 
+COM_OBJ		=	grib_util.o						\
+				grib_log.o						\
+				grib_db.o						\
+				grib_config.o
+
 # ########## ########## ########## ########## ########## ##########
 # shbaek: FOR REBOOT
 # ########## ########## ########## ########## ########## ##########
@@ -32,10 +37,8 @@ REBOOT_INC		= 	$(COM_INC)						\
 REBOOT_LIB		=	$(COM_LIB)						\
 				 	-lmysqlclient
 
-REBOOT_OBJ		=	grib_reboot.o					\
-					grib_util.o						\
-					grib_db.o						\
-					grib_config.o
+REBOOT_OBJ		=	$(COM_OBJ)						\
+					grib_reboot.o
 
 REBOOT_SRC 		= 	$(REBOOT_OBJ:.o=.cpp)
 
@@ -51,9 +54,8 @@ HCI_LIB		=	$(COM_LIB)						\
 				-lbluetooth						\
 			 	-lmysqlclient
 
-HCI_OBJ		=	grib_hci.o						\
-				grib_util.o						\
-				grib_db.o
+HCI_OBJ		=	$(COM_OBJ)						\
+				grib_hci.o
 
 HCI_SRC 	= 	$(HCI_OBJ:.o=.cpp)
 
@@ -76,8 +78,8 @@ CJSON_SRC 	= 	$(CJSON_OBJ:.o=.c)
 # ########## ########## ########## ########## ########## ##########
 # shbaek: FOR CAS
 # ########## ########## ########## ########## ########## ##########
-CAS_FEATURE	=	-DFEATURE_CAS
-#CAS_FEATURE	=	-DFEATURE_CAS_NOT_USED
+#CAS_FEATURE	=	-DFEATURE_CAS
+CAS_FEATURE	=	-DFEATURE_CAS_NOT_USED
 
 CAS_PATH 	= 	${CURDIR}/libs/cas_package
 
@@ -107,11 +109,9 @@ BLE_HUB_LIB		=	$(COM_LIB)						\
 					-lbluetooth 					\
 				 	-lmysqlclient
 
-BLE_HUB_OBJ 	=	grib_hub.o 						\
+BLE_HUB_OBJ 	=	$(COM_OBJ)						\
 					$(CAS_OBJ)						\
-					grib_config.o 					\
-					grib_util.o 					\
-					grib_db.o						\
+					grib_hub.o						\
 					grib_ble.o 						\
 					grib_thread.o					\
 					grib_http.o 					\

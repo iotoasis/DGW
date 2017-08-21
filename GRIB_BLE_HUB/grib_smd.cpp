@@ -185,6 +185,8 @@ int Grib_SmdGetDeviceInfo(char* deviceID, char* smdBuff)
 	if(iRes <= 0)
 	{
 		GRIB_LOGD("# HTTP MSG SEND ERROR !!!\n");
+		STRINIT(smdBuff, HTTP_MAX_SIZE_BODY);
+		SNPRINTF(smdBuff, HTTP_MAX_SIZE_BODY, "%s [%d]", httpMsg.statusMsg, httpMsg.statusCode);
 		return GRIB_ERROR;
 	}
 
@@ -210,6 +212,9 @@ int Grib_SmdGetDeviceInfo(char* deviceID, char* smdBuff)
 
 	if(httpMsg.statusCode != HTTP_STATUS_CODE_OK)
 	{
+		STRINIT(smdBuff, HTTP_MAX_SIZE_BODY);
+		SNPRINTF(smdBuff, HTTP_MAX_SIZE_BODY, "%s [%d]", httpMsg.statusMsg, httpMsg.statusCode);
+
 		return GRIB_ERROR;
 	}
 

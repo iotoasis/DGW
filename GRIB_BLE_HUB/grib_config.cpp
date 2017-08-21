@@ -18,17 +18,24 @@ Grib_ConfigInfo gConfigInfo;
 
 void Grib_ShowConfig(Grib_ConfigInfo* pConfigInfo)
 {
+	char* siServerIP = NULL;
 
 	if(pConfigInfo == NULL)
 	{
 		pConfigInfo = &gConfigInfo;
 	}
 
+	//shbaek: Use DNS
+	Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &siServerIP);
+	pConfigInfo->siServerPort = GRIB_PLATFORM_SERVER_PORT;
+
 	GRIB_LOGD("\n");
 	GRIB_LOGD(GRIB_1LINE_SHARP);
 
 	GRIB_LOGD("# HUB_ID              : %s\n", pConfigInfo->hubID);
-	GRIB_LOGD("# SI_SERVER_IP        : %s\n", pConfigInfo->siServerIP);
+
+	GRIB_LOGD("# SI_SERVER_DOMAIN    : %s\n", GRIB_PLATFORM_SERVER_DOMAIN);
+	GRIB_LOGD("# SI_SERVER_IP        : %s\n", siServerIP);	
 	GRIB_LOGD("# SI_SERVER_PORT      : %d\n", pConfigInfo->siServerPort);
 	GRIB_LOGD("# SI_IN_NAME          : %s\n", pConfigInfo->siInName);
 	GRIB_LOGD("# SI_CSE_NAME         : %s\n", pConfigInfo->siCseName);
@@ -45,11 +52,13 @@ void Grib_ShowConfig(Grib_ConfigInfo* pConfigInfo)
 	GRIB_LOGD(GRIB_1LINE_SHARP);
 	GRIB_LOGD("\n");
 
+	FREE(siServerIP);
+
 }
 
 int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 {
-	const char* FUNC_TAG = "LOAD-CFG";
+	const char* FUNC = "LOAD-CFG";
 	int iRes = GRIB_DONE;
 	int iDBG = FALSE;
 
@@ -309,66 +318,66 @@ int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 
 int Grib_SetConfigDB(Grib_ConfigInfo* pConfigInfo)
 {
-	const char* FUNC_TAG = "SET-CFG";
+	const char* FUNC = "SET-CFG";
 	int iRes = GRIB_ERROR;
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
 	if(STRLEN(pConfigInfo->hubID)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID HUB ID ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID HUB ID ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
 	//1 shbaek: SI SERVER
 	if(STRLEN(pConfigInfo->siServerIP)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID SI SERVER IP ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID SI SERVER IP ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 	if(pConfigInfo->siServerPort<=0)
 	{
-		GRIB_LOGD("# %s: INVALID SI SERVER PORT ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID SI SERVER PORT ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 	if(STRLEN(pConfigInfo->siInName)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID IN NAME ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID IN NAME ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 	if(STRLEN(pConfigInfo->siCseName)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID CSE NAME ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID CSE NAME ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
 	//1 shbaek: AUTH SERVER
 	if(STRLEN(pConfigInfo->authServerIP)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID AUTH SERVER IP ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID AUTH SERVER IP ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 	if(pConfigInfo->authServerPort<=0)
 	{
-		GRIB_LOGD("# %s: INVALID AUTH SERVER PORT ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID AUTH SERVER PORT ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
 	//1 shbaek: SMD SERVER
 	if(STRLEN(pConfigInfo->smdServerIP)<=1)
 	{
-		GRIB_LOGD("# %s: INVALID SMD SERVER IP ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID SMD SERVER IP ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
 	if(pConfigInfo->smdServerPort<=0)
 	{
-		GRIB_LOGD("# %s: INVALID SMD SERVER PORT ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: INVALID SMD SERVER PORT ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -391,7 +400,7 @@ int Grib_SetConfigDB(Grib_ConfigInfo* pConfigInfo)
 	iRes = Grib_DbQuery(&gConfigSQL, sqlQuery);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: QUERY FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: QUERY FAIL !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -401,7 +410,7 @@ int Grib_SetConfigDB(Grib_ConfigInfo* pConfigInfo)
 
 int Grib_GetConfigDB(void)
 {
-	const char* FUNC_TAG = "GET-CFG";
+	const char* FUNC = "GET-CFG";
 	int iRes = GRIB_ERROR;
 	int iDBG = FALSE;
 
@@ -414,7 +423,7 @@ int Grib_GetConfigDB(void)
 	iRes = Grib_MakeSqlInfo(pConfigSql);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: MAKE SQL FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: MAKE SQL FAIL !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 	if(iDBG)Grib_ShowSqlInfo(pConfigSql);
@@ -422,7 +431,7 @@ int Grib_GetConfigDB(void)
 	iRes = Grib_DbConnect(pConfigSql);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: DB CONNECT FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: DB CONNECT FAIL !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -432,8 +441,15 @@ int Grib_GetConfigDB(void)
 	iRes = Grib_DbQuery(pConfigSql, sqlQuery);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: QUERY FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: QUERY FAIL !!!\n", FUNC);
 		return GRIB_ERROR;
+	}
+
+	pConfigSql->result = mysql_store_result(pConfigSql->connect);
+	if(pConfigSql->result == NULL)
+	{
+		Grib_ErrLog(FUNC, "RESULT IS NULL !!!");
+		goto FINAL;
 	}
 
 	if(0 < Grib_DbGetRowCount(pConfigSql))
@@ -441,7 +457,7 @@ int Grib_GetConfigDB(void)
 		sqlRow = mysql_fetch_row(pConfigSql->result);
 		if(sqlRow == NULL)
 		{
-			GRIB_LOGD("# %s: FETCH ROW ERROR !!!\n", FUNC_TAG);
+			GRIB_LOGD("# %s: FETCH ROW ERROR !!!\n", FUNC);
 			return GRIB_ERROR;
 		}
 
@@ -470,19 +486,26 @@ int Grib_GetConfigDB(void)
 		iRes = Grib_LoadDefaultConfig(pConfigInfo);
 		if(iRes!=GRIB_DONE)
 		{
-			GRIB_LOGD("# %s: LOAD DEFAULT CONFIG ERROR !!!\n", FUNC_TAG);
+			GRIB_LOGD("# %s: LOAD DEFAULT CONFIG ERROR !!!\n", FUNC);
 			return GRIB_ERROR;
 		}
 
 		iRes = Grib_SetConfigDB(pConfigInfo);
 		if(iRes!=GRIB_DONE)
 		{
-			GRIB_LOGD("# %s: SET DEFAULT CONFIG ERROR !!!\n", FUNC_TAG);
+			GRIB_LOGD("# %s: SET DEFAULT CONFIG ERROR !!!\n", FUNC);
 			return GRIB_ERROR;
 		}
 	}
 
 	pConfigInfo->isLoad = TRUE;
+
+FINAL:
+	if(pConfigSql->result!=NULL)
+	{
+		mysql_free_result(pConfigSql->result);
+		pConfigSql->result = NULL;
+	}
 
 	return iRes;
 }
@@ -514,7 +537,7 @@ LOAD_CONFIG:
 
 int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo)
 {
-	const char* FUNC_TAG = "SET-HUB";
+	const char* FUNC = "SET-HUB";
 
 	int i = 0;
 	int iCount = 0;
@@ -525,7 +548,7 @@ int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo)
 
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -539,7 +562,7 @@ int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo)
 	iRes = Grib_DbQuery(&gConfigSQL, sqlQuery);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC_TAG, gConfigSQL.errStr, gConfigSQL.errNum);
+		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC, gConfigSQL.errStr, gConfigSQL.errNum);
 		return GRIB_ERROR;
 	}
 
@@ -548,7 +571,7 @@ int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo)
 
 int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 {
-	const char* FUNC_TAG = "SET-SI";
+	const char* FUNC = "SET-SI";
 
 	int i = 0;
 	int iCount = 0;
@@ -559,7 +582,7 @@ int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -574,7 +597,7 @@ int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 	iRes = Grib_DbQuery(&gConfigSQL, sqlQuery);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC_TAG, gConfigSQL.errStr, gConfigSQL.errNum);
+		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC, gConfigSQL.errStr, gConfigSQL.errNum);
 		return GRIB_ERROR;
 	}
 
@@ -583,7 +606,7 @@ int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 
 int Grib_SetConfigEtc(Grib_ConfigInfo* pConfigInfo)
 {
-	const char* FUNC_TAG = "SET-ETC";
+	const char* FUNC = "SET-ETC";
 
 	int i = 0;
 	int iCount = 0;
@@ -594,7 +617,7 @@ int Grib_SetConfigEtc(Grib_ConfigInfo* pConfigInfo)
 
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -609,7 +632,7 @@ int Grib_SetConfigEtc(Grib_ConfigInfo* pConfigInfo)
 	iRes = Grib_DbQuery(&gConfigSQL, sqlQuery);
 	if(iRes!=GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC_TAG, gConfigSQL.errStr, gConfigSQL.errNum);
+		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC, gConfigSQL.errStr, gConfigSQL.errNum);
 		return GRIB_ERROR;
 	}
 

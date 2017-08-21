@@ -21,6 +21,9 @@ if [ "make" == "$1" ] ; then
 	if [ "all" == "$2" ] ; then
 		make clean
 		make all
+	elif [ "hci" == "$2" ] ; then
+		make hci_clean
+		make hci
 	else
 		make ble_hub_clean
 		make ble_hub
@@ -73,15 +76,6 @@ if [ "ble" == "$1" ] ; then
 		echo -e
 		exit
 	fi
-fi
-
-# ########## ########## ########## ########## ########## ########## ########## ##########
-# shbaek: ONLY EMULATOR
-# ########## ########## ########## ########## ########## ########## ########## ##########
-if [ "emulator" == "$1" ] ; then
-	./${GRIB_EMUL_NAME} "$2" "$3" "$4"
-	echo -e
-	exit
 fi
 
 # ########## ########## ########## ########## ########## ########## ########## ##########

@@ -463,7 +463,7 @@ static int Grib_PrintAdv(int sock, const char* addr, int opt)
 	const int LOOP_COUNT = INT_MAX;
 	bdaddr_t targetAddr;
 
-	if((STRLEN(addr)+1) != BT_ADDR_MAX_BUFF_SIZE)
+	if(STRLEN(addr) != GRIB_MAX_SIZE_BLE_ADDR_STR)
 	{
 		GRIB_LOGD("# %s: TARGET ADDR INVALID SIZE: %d\n", FUNC, STRLEN(addr));
 		return -1;
@@ -499,7 +499,124 @@ static int Grib_PrintAdv(int sock, const char* addr, int opt)
 
 	while(iCount < LOOP_COUNT)
 	{
-		char tempAddr[BT_ADDR_MAX_BUFF_SIZE] = {'\0', };
+		char tempAddr[GRIB_MAX_SIZE_BLE_ADDR_STR+1] = {'\0', };
+		char tempName[HCI_DEVICE_NAME_MAX_SIZE] = {'\0', };
+
+		evt_le_meta_event*   meta;
+		le_advertising_info* info;
+
+		MEMSET(tempAddr, 0, sizeof(tempAddr));
+		MEMSET(tempName, 0, sizeof(tempName));
+
+		while((len = read(sock, buf, sizeof(buf))) < 0) 
+		{//shbaek: Error Case
+			if (errno == EINTR && signal_received == SIGINT) 
+			{
+				len = 0;
+				goto done;
+			}
+
+			if (errno == EAGAIN || errno == EINTR)
+			{
+				continue;
+			}
+			goto done;
+		}
+
+		ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
+		len -= (1 + HCI_EVENT_HDR_SIZE);
+		meta = (evt_le_meta_event *) ptr;
+
+		if (meta->subevent != 0x02)//shbaek: Sub Event: LE Advertising Report (0x02)
+			goto done;
+
+		info = (le_advertising_info *) (meta->data + 1);
+
+		if(bacmp(&targetAddr, &info->bdaddr) != 0)
+		{//shbaek: No Target ...
+			continue;
+		}
+
+		ba2str(&info->bdaddr, tempAddr);
+
+		GRIB_LOGD("\n");
+		Grib_ShowCurrDateTime();
+		GRIB_LOGD(GRIB_1LINE_DASH);
+/*
+
+		GRIB_LOGD("# [EVT: 0x%02X] [PEER: 0x%02X] [LEN: %d]\n", info->evt_type, info->bdaddr_type, info->length);
+		if(eir_parse_name(info->data, info->length, tempName, sizeof(tempName) - 1))
+		{
+			GRIB_LOGD("# NAME: %s\n", tempName);
+		}
+		else
+*/
+		{
+			Grib_PrintOnlyHex((char *)ptr, len);
+		}
+		iCount++;
+	}
+
+done:
+	setsockopt(sock, SOL_HCI, HCI_FILTER, &of, sizeof(of));
+
+	if (len < 0)
+		return -1;
+
+	return 0;
+}
+
+static int Grib_PrintAdvOri(int sock, const char* addr, int opt)
+{
+	const char* FUNC = "PRINT-ADV";
+
+	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
+	struct hci_filter nf, of;
+	struct sigaction sa;
+	socklen_t olen;
+	int len;
+
+	int iCount = 0;
+	const int LOOP_COUNT = INT_MAX;
+	bdaddr_t targetAddr;
+
+	if(STRLEN(addr) != GRIB_MAX_SIZE_BLE_ADDR_STR)
+	{
+		GRIB_LOGD("# %s: TARGET ADDR INVALID SIZE: %d\n", FUNC, STRLEN(addr));
+		return -1;
+	}
+
+	if(str2ba(addr, &targetAddr))
+	{
+		GRIB_LOGD("# %s: TARGET ADDR INVALID DATA: %s\n", FUNC, addr);
+		return -1;
+	}
+
+	olen = sizeof(of);
+	if(getsockopt(sock, SOL_HCI, HCI_FILTER, &of, &olen) < 0)
+	{
+		printf("# %s: Could not get socket options\n", FUNC);
+		return -1;
+	}
+
+	hci_filter_clear(&nf);
+	hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
+	hci_filter_set_event(EVT_LE_META_EVENT, &nf);
+
+	if(setsockopt(sock, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0)
+	{
+		printf("# %s: Could not set socket options\n", FUNC);
+		return -1;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_flags = SA_NOCLDSTOP;
+	sa.sa_handler = sigint_handler;
+	sigaction(SIGINT, &sa, NULL);
+
+	while(iCount < LOOP_COUNT)
+	{
+		char tempAddr[GRIB_MAX_SIZE_BLE_ADDR_STR+1] = {'\0', };
 		char tempName[HCI_DEVICE_NAME_MAX_SIZE] = {'\0', };
 
 		evt_le_meta_event*   meta;

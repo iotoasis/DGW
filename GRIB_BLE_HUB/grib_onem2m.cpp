@@ -21,6 +21,7 @@ OneM2M_ResParam gResParam;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define __ONEM2M_UTIL_FUNC__
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+
 int Grib_SiSetServerConfig(void)
 {
 	int iRes = GRIB_ERROR;
@@ -35,10 +36,19 @@ int Grib_SiSetServerConfig(void)
 
 	if(gSiInName==NULL) gSiInName = STRDUP(pConfigInfo->siInName);
 	if(gSiCseName==NULL) gSiCseName = STRDUP(pConfigInfo->siCseName);
-	if(gSiServerIp==NULL) gSiServerIp = STRDUP(pConfigInfo->siServerIP);
 
+#ifdef __NOT_USED__
+	if(gSiServerIp==NULL) gSiServerIp = STRDUP(pConfigInfo->siServerIP);
 	gSiServerPort = pConfigInfo->siServerPort;
+#endif
+
+	if(gSiServerIp==NULL)
+	{//shbaek: Use DNS ...
+		Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &gSiServerIp);
+		gSiServerPort = GRIB_PLATFORM_SERVER_PORT;
+	}
 	gDebugOneM2M = pConfigInfo->debugLevel;
+//	gDebugOneM2M = TRUE; //shbaek: TEST DEBUG
 
 	Grib_HttpSetDebug(gDebugOneM2M, pConfigInfo->tombStone);
 	Grib_SmdSetDebug(gDebugOneM2M);
@@ -114,6 +124,7 @@ int Grib_OneM2MResParser(OneM2M_ResParam *pResParam)
 			if(iDBG)GRIB_LOGD("[%03d] KEY:[%s] TEMP VALUE:[%s]\n", i, strKey, strValue);
 
 			strValueEnd = STRCHR(strValue, '"');
+			if(strValueEnd==NULL)continue;
 			strValueEnd[0] = NULL;
 
 			STRNCPY(pResParam->xM2M_RsrcID, strValue, STRLEN(strValue));
@@ -136,6 +147,7 @@ int Grib_OneM2MResParser(OneM2M_ResParam *pResParam)
 			if(iDBG)GRIB_LOGD("[%03d] KEY:[%s] TEMP VALUE:[%s]\n", i, strKey, strValue);
 
 			strValueEnd = STRCHR(strValue, '"');
+			if(strValueEnd==NULL)continue;
 			strValueEnd[0] = NULL;
 
 			STRNCPY(pResParam->xM2M_PrntID, strValue, STRLEN(strValue));
@@ -323,6 +335,160 @@ int Grib_isAvailableExpireTime(char* xM2M_ExpireTime)
 	return TRUE;
 }
 
+int Grib_CmdRequestParser(OneM2M_ResParam* pResParam)
+{
+	const char* FUNC = "CMD-PARSER";
+	int iRes = GRIB_DONE;
+	int iDBG = gDebugOneM2M;
+
+	char* srcBuff = NULL;
+	char* oriBuff = NULL;
+	char  decBuff[SIZE_1K] = {'\0', };
+
+	if(pResParam == NULL)
+	{
+		Grib_ErrLog(FUNC, "PARAM IS NULL ERROR !!!");
+		return GRIB_ERROR;
+	}
+
+	if(gDebugOneM2M)
+	{
+		GRIB_LOGD(GRIB_1LINE_DASH);
+		GRIB_LOGD("# %s: CON TYPE : %s\n", FUNC, pResParam->xM2M_ContentInfo);
+		GRIB_LOGD("# %s: CON VALUE: \n%s\n", FUNC, pResParam->xM2M_Content);
+		GRIB_LOGD(GRIB_1LINE_DASH);
+	}
+
+	if(STRSTR(pResParam->xM2M_ContentInfo, ":0") != NULL)
+	{//shbaek: Plain
+		STRNCPY(decBuff, pResParam->xM2M_Content, STRLEN(pResParam->xM2M_Content));
+	}
+	else if(STRSTR(pResParam->xM2M_ContentInfo, ":1") != NULL)
+	{//shbaek: Base64 Encoded
+		iRes = Grib_Base64Decode(pResParam->xM2M_Content, decBuff, GRIB_NOT_USED);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# %s: BASE64 DECODING ERROR !!!\n", FUNC);
+			return GRIB_ERROR;
+		}
+	}
+	else
+	{//shbaek: Not Support
+		return GRIB_ERROR;
+	}
+
+	if(!STRNCASECMP(pResParam->xM2M_ContentInfo, HTTP_CONTENT_TYPE_TEXT, STRLEN(HTTP_CONTENT_TYPE_TEXT)))
+	{//shbaek: Do Not Parsing
+		STRINIT(pResParam->cmdReq_ExecID, sizeof(pResParam->cmdReq_ExecID));
+		STRNCPY(pResParam->cmdReq_ExecID, pResParam->xM2M_RsrcID, STRLEN(pResParam->xM2M_RsrcID));
+		if(iDBG)GRIB_LOGD("# %s: EXEC_ID: %s\n", FUNC, pResParam->cmdReq_ExecID);
+
+		STRINIT(pResParam->xM2M_Content, sizeof(pResParam->xM2M_Content));
+		STRNCPY(pResParam->xM2M_Content, decBuff, STRLEN(decBuff));
+		if(iDBG)GRIB_LOGD("# %s: CMD DATA: %s\n", FUNC, pResParam->xM2M_Content);
+	}
+
+	if(!STRNCASECMP(pResParam->xM2M_ContentInfo, HTTP_CONTENT_TYPE_JSON, STRLEN(HTTP_CONTENT_TYPE_JSON)))
+	{//shbaek: Need Parsing Json.
+		char* strKey = NULL;
+		char* strTemp = NULL;
+		char* strValue = NULL;
+
+		oriBuff = srcBuff = Grib_TrimAll(decBuff);
+		//if(iDBG)GRIB_LOGD("# %s: BASE64 DEC CON VALUE: %s\n", FUNC, decBuff);
+
+		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+		//shbaek: [TBD] Find Execute ID
+		strKey = "\"exec_id\":\"";
+		strTemp = STRSTR(srcBuff, strKey);
+		if(strTemp != NULL)
+		{
+			char *strValueEnd = NULL;
+
+			//shbaek: Copy Value
+			strValue = strTemp+STRLEN(strKey);
+			//if(iDBG)GRIB_LOGD("# %s: KEY:[%s] TEMP VALUE:[%s]\n", FUNC, strKey, strValue);
+
+			strValueEnd = STRCHR(strValue, '"');
+			if(strValueEnd != NULL)
+			{
+				strValueEnd[0] = NULL;
+
+				STRINIT(pResParam->cmdReq_ExecID, sizeof(pResParam->cmdReq_ExecID));
+				STRNCPY(pResParam->cmdReq_ExecID, strValue, STRLEN(strValue));
+
+				srcBuff = ++strValueEnd; //shbaek: Move String Point
+				if(iDBG)GRIB_LOGD("# %s: EXEC_ID: %s\n", FUNC, pResParam->cmdReq_ExecID);
+			}
+		}
+		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+
+		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+		//shbaek: [TBD] Find Control Command Data
+		strKey = "\"data\":\"";
+		strTemp = STRSTR(srcBuff, strKey);
+		if(strTemp != NULL)
+		{
+			char *strValueEnd = NULL;
+
+			//shbaek: Copy Value
+			strValue = strTemp+STRLEN(strKey);
+			//if(iDBG)GRIB_LOGD("# %s: KEY:[%s] TEMP VALUE:[%s]\n", FUNC, strKey, strValue);
+
+			strValueEnd = STRCHR(strValue, '"');
+			if(strValueEnd != NULL)
+			{
+				strValueEnd[0] = NULL;
+
+				STRINIT(pResParam->xM2M_Content, sizeof(pResParam->xM2M_Content));
+				STRNCPY(pResParam->xM2M_Content, strValue, STRLEN(strValue));
+				
+				if(iDBG)GRIB_LOGD("# %s: CMD DATA: %s\n", FUNC, pResParam->xM2M_Content);
+			}
+		}
+		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+
+		
+	}
+
+	FREE(oriBuff);
+
+	return iRes;
+}
+
+//int Grib_CmdResponseCreate(char* cmdID, char* cmdData, char* cmdBuff)
+int Grib_CmdResponseCreate(OneM2M_ReqParam* pReqParam, OneM2M_ResParam* pResParam, char* cmdResData)
+{
+	const char* FUNC = "CMD-PARSER";
+	int iRes = GRIB_DONE;
+	int iDBG = gDebugOneM2M;
+
+	const char* CMD_RES_FORMAT = 	"{" \
+									" \"exec_id\":\"%s\"," \
+									" \"exec_result\":\"%s\" " \
+									"}";
+
+	char CMD_RES_BUFF[GRIB_MAX_SIZE_DLONG] = {'\0', };
+
+	if( (pReqParam==NULL) || (pResParam==NULL) || (cmdResData==NULL) )
+	{
+		Grib_ErrLog(FUNC, "PARAM IS NULL ERROR !!!");
+		return GRIB_ERROR;
+	}
+
+	SNPRINTF(CMD_RES_BUFF, sizeof(CMD_RES_BUFF), CMD_RES_FORMAT, pResParam->cmdReq_ExecID, cmdResData);
+	if(iDBG)Grib_InfoLog(FUNC, CMD_RES_BUFF);
+
+	STRINIT(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF));
+	SPRINTF(pReqParam->xM2M_CNF, "%s:%d", HTTP_CONTENT_TYPE_JSON, HTTP_ENC_TYPE_BASE64);
+	if(iDBG)Grib_InfoLog(FUNC, pReqParam->xM2M_CNF);
+
+	STRINIT(pReqParam->xM2M_CON, sizeof(pReqParam->xM2M_CON));
+	Grib_Base64Encode(CMD_RES_BUFF, pReqParam->xM2M_CON, GRIB_NOT_USED);
+	if(iDBG)Grib_InfoLog(FUNC, pReqParam->xM2M_CON);
+
+	return iRes;
+}
 
 
 #define __ONEM2M_DEVICE_ID_FUNC__
@@ -406,7 +572,7 @@ int Grib_AppEntityCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	{
 		if(pResParam->http_ResNum == HTTP_STATUS_CODE_CONFLICT)
 		{
-			GRIB_LOGD("# %s-xM2M:%c[1;33mAPP ENTITY ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
+			GRIB_LOGD("# %s-xM2M: %c[1;33mAPP ENTITY ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
 		}
 		else
 		{
@@ -641,7 +807,7 @@ int Grib_ContainerCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		if(pResParam->http_ResNum == HTTP_STATUS_CODE_CONFLICT)
 		{
 
-			GRIB_LOGD("# %s-xM2M: %c[1;31m%s CNT ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 
+			GRIB_LOGD("# %s-xM2M: %c[1;33m%s CNT ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 
 				27, pReqParam->xM2M_NM, 27);
 		}
 		else
@@ -865,7 +1031,7 @@ int Grib_PollingChannelCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResP
 	{
 		if(pResParam->http_ResNum == HTTP_STATUS_CODE_CONFLICT)
 		{
-			GRIB_LOGD("# %s-xM2M:%c[1;33mPOLLING CHANNEL ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
+			GRIB_LOGD("# %s-xM2M: %c[1;33mPOLLING CHANNEL ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
 		}
 		else
 		{
@@ -986,7 +1152,7 @@ int Grib_SubsciptionCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResPara
 	{
 		if(pResParam->http_ResNum == HTTP_STATUS_CODE_CONFLICT)
 		{
-			GRIB_LOGD("# %s-xM2M:%c[1;33mSUBSCRIPTION ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
+			GRIB_LOGD("# %s-xM2M: %c[1;33mSUBSCRIPTION ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
 		}
 		else
 		{
@@ -1048,7 +1214,7 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 	if(STRLEN(pReqParam->xM2M_CNF) <= 1)
 	{//shbaek: Default Type
 		STRINIT(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF));
-		SNPRINTF(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF), "%s:0", HTTP_CONTENT_TYPE_TEXT);
+		SNPRINTF(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF), "%s:%d", HTTP_CONTENT_TYPE_TEXT, HTTP_ENC_TYPE_NONE);
 	}
 
 	if(STRLEN(pReqParam->xM2M_AttrLBL) <= 1)
@@ -1332,7 +1498,31 @@ int Grib_LongPollingResParser(OneM2M_ResParam *pResParam)
 			STRNCPY(pResParam->xM2M_ExpireTime, strValue, STRLEN(strValue));
 
 			if(iDBG)GRIB_LOGD("[%03d] ET:[%s]\n", i, pResParam->xM2M_ExpireTime);
-			continue;//3 shbaek: Next Line
+			continue;//1 shbaek: Next Line
+		}
+
+		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+		//shbaek: Find Content Info Tag
+		strTagStart = "<cnf>";
+		strTagEnd	= "</cnf>";
+		strTemp = STRSTR(str1Line, strTagStart);
+		if(strTemp != NULL)
+		{
+			char *strValueEnd = NULL;
+
+			//shbaek: Copy Value
+			strValue = strTemp+STRLEN(strTagStart);
+			if(iDBG)GRIB_LOGD("[%03d] TAG:[%s] TEMP VALUE:[%s]\n", i, strTagStart, strValue);
+
+			strValueEnd = STRSTR(str1Line, strTagEnd);
+			if(strValueEnd==NULL) continue;
+			strValueEnd[0] = NULL;
+
+			STRINIT(pResParam->xM2M_ContentInfo, sizeof(pResParam->xM2M_ContentInfo));
+			STRNCPY(pResParam->xM2M_ContentInfo, strValue, STRLEN(strValue));
+
+			if(iDBG)GRIB_LOGD("[%03d] CNF:[%s]\n", i, pResParam->xM2M_ContentInfo);
+			continue;//1 shbaek: Next Line
 		}
 
 		//shbaek: ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
@@ -1390,7 +1580,7 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		SNPRINTF(pReqParam->xM2M_URI, sizeof(pReqParam->xM2M_URI), "%s/%s/%s", 
 			pReqParam->xM2M_AeName, ONEM2M_URI_CONTENT_POLLING_CHANNEL, ONEM2M_URI_CONTENT_PCU);
 
-		GRIB_LOGD("# LONG POLLING URI: %s\n", pReqParam->xM2M_URI);
+		if(iDBG)GRIB_LOGD("# LONG POLLING URI: %s\n", pReqParam->xM2M_URI);
 	}
 
 #ifdef FEATURE_CAS
@@ -1447,6 +1637,14 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		return GRIB_ERROR;
 	}
 
+	//shbaek: Add Command Result.
+	iRes = Grib_CmdRequestParser(pResParam);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s-xM2M: CMD REQUEST PARSING ERROR\n", pReqParam->xM2M_AeName);
+		return GRIB_ERROR;
+	}	
+
 	if(iDBG)
 	{
 		GRIB_LOGD("# RESOURCE ID: [%s]\n", pResParam->xM2M_RsrcID);
@@ -1493,7 +1691,7 @@ int Grib_SemanticDescriptorUpload(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *p
 	iRes = Grib_SmdGetDeviceInfo(pReqParam->xM2M_AeName, smdBuff);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# %s: GET DEVICE INFO ERROR !!!\n", pReqParam->xM2M_AeName);
+		GRIB_LOGD("# %s-xM2M: %c[1;31mGET DEVICE INFO FAIL: %s%c[0m\n", pReqParam->xM2M_AeName, 27, smdBuff, 27);
 		return GRIB_ERROR;
 	}
 	
@@ -1511,7 +1709,7 @@ int Grib_SemanticDescriptorUpload(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *p
 		SNPRINTF(AUTO_LABEL, sizeof(AUTO_LABEL), "%s_SemanticDescriptorLabel", pReqParam->xM2M_AeName);
 	}
 
-	SNPRINTF(xM2M_AttrDCRP, sizeof(xM2M_AttrDCRP), "%s:1",	  HTTP_CONTENT_TYPE_RDF_XML);
+	SNPRINTF(xM2M_AttrDCRP, sizeof(xM2M_AttrDCRP), "%s:%d", HTTP_CONTENT_TYPE_RDF_XML, HTTP_ENC_TYPE_BASE64);
 	if(iDBG)GRIB_LOGD("# DCRP: %s\n", xM2M_AttrDCRP);
 
 	STRINIT(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID));
@@ -1561,7 +1759,7 @@ int Grib_SemanticDescriptorUpload(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *p
 	{
 		if(pResParam->http_ResNum == HTTP_STATUS_CODE_CONFLICT)
 		{
-			GRIB_LOGD("# %s-xM2M:%c[1;33mSEMANTIC DESCRIPTOR ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
+			GRIB_LOGD("# %s-xM2M: %c[1;33mSEMANTIC DESCRIPTOR ALREADY EXIST ...%c[0m\n", pReqParam->xM2M_AeName, 27, 27);
 		}
 		else
 		{
@@ -1633,6 +1831,7 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 	reqParam.authKey = pAuthKey;
 #endif
 
+/*
 	if(pRowDeviceInfo->deviceInterface == DEVICE_IF_TYPE_INTERNAL)
 	{
 		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
@@ -1643,6 +1842,9 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
 		SNPRINTF(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", pConfigInfo->hubID);
 	}
+*/
+	STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
+	STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
 	//1 shbaek: 1.App Entity
 	//shbaek: Your Device ID
@@ -1706,9 +1908,60 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 			}
 		}
 
+		if(FUNC_ATTR_CHECK_REPORT(pRowDeviceFunc->funcAttr))
+		{//shbaek: Use Report Status.
+			//1 shbaek: 3-1.Status
+			//shbaek: Set URI -> in/cse/"Device ID"/"Func"
+			MEMSET(&resParam, 0x00, sizeof(resParam));
+			STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+			SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s", reqParam.xM2M_AeName, pFuncName);
+			STRINIT(reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
+			STRNCPY(reqParam.xM2M_NM, ONEM2M_URI_CONTENT_STATUS, STRLEN(ONEM2M_URI_CONTENT_STATUS));
+			//shbaek: Create Status Container
+			iRes = Grib_ContainerCreate(&reqParam, &resParam);
+			if(iRes == GRIB_ERROR)
+			{
+				if(resParam.http_ResNum == HTTP_STATUS_CODE_CONFLICT)
+				{//shbaek: Already Exist is Not Error.
+
+#if __CACHE_RI_TABLE__
+					STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+					SNPRINTF(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s/%s", reqParam.xM2M_AeName, pFuncName, reqParam.xM2M_NM);
+					Grib_ContainerRetrieve(&reqParam, &resParam);
+#endif
+				}
+				else
+				{
+					goto ERROR;
+				}
+			}
+		}//shbaek: Use Report Status.
+
 		if(FUNC_ATTR_CHECK_CONTROL(pRowDeviceFunc->funcAttr))
 		{//shbaek: Use Control Command.
-			//1 shbaek: 3-1.Execute
+
+			//1 shbaek: 3-2. RESULT -> ICBMS 3rd
+			//shbaek: Set URI -> in/cse/"Device ID"/"Func"
+			MEMSET(&resParam, 0x00, sizeof(resParam));
+			STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
+			SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s", reqParam.xM2M_AeName, pFuncName);
+			STRINIT(reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
+			STRNCPY(reqParam.xM2M_NM, ONEM2M_URI_CONTENT_RESULT, STRLEN(ONEM2M_URI_CONTENT_RESULT));
+			//shbaek: Create Result Container
+			iRes = Grib_ContainerCreate(&reqParam, &resParam);
+			if(iRes == GRIB_ERROR)
+			{
+				if(resParam.http_ResNum == HTTP_STATUS_CODE_CONFLICT)
+				{//shbaek: Already Exist is Not Error.
+
+				}
+				else
+				{
+					goto ERROR;
+				}
+			}
+
+			//1 shbaek: 3-3.Execute
 			//shbaek: Set URI -> in/cse/"Device ID"/"Func"
 			MEMSET(&resParam, 0x00, sizeof(resParam));
 			STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
@@ -1741,7 +1994,7 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 			if(iDBG)GRIB_LOGD("# %s: %s EXECUTE RESOURCE ID: %s\n", pRowDeviceInfo->deviceID, pFuncName, pRowDeviceFunc->exRsrcID);
 #endif
 
-			//1 shbaek: 3-1-1.Subscription
+			//1 shbaek: 3-3-1.Subscription
 			MEMSET(&resParam, 0x00, sizeof(resParam));
 			STRINIT(reqParam.xM2M_Func, sizeof(reqParam.xM2M_Func));
 			STRNCPY(reqParam.xM2M_Func, pFuncName, STRLEN(pFuncName));
@@ -1760,36 +2013,6 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 			}
 		}//shbaek: Use Control Command.
 
-		if(FUNC_ATTR_CHECK_REPORT(pRowDeviceFunc->funcAttr))
-		{//shbaek: Use Report Status.
-			//1 shbaek: 3-2.Status
-			//shbaek: Set URI -> in/cse/"Device ID"/"Func"
-			MEMSET(&resParam, 0x00, sizeof(resParam));
-			STRINIT(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-			SNPRINTF(reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s", reqParam.xM2M_AeName, pFuncName);
-			STRINIT(reqParam.xM2M_NM, sizeof(reqParam.xM2M_NM));
-			STRNCPY(reqParam.xM2M_NM, ONEM2M_URI_CONTENT_STATUS, STRLEN(ONEM2M_URI_CONTENT_STATUS));
-			//shbaek: Create Status Container
-			iRes = Grib_ContainerCreate(&reqParam, &resParam);
-			if(iRes == GRIB_ERROR)
-			{
-				if(resParam.http_ResNum == HTTP_STATUS_CODE_CONFLICT)
-				{//shbaek: Already Exist is Not Error.
-
-#if __CACHE_RI_TABLE__
-					STRINIT(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI));
-					SNPRINTF(&reqParam.xM2M_URI, sizeof(reqParam.xM2M_URI), "%s/%s/%s", reqParam.xM2M_AeName, pFuncName, reqParam.xM2M_NM);
-					Grib_ContainerRetrieve(&reqParam, &resParam);
-#endif
-				}
-				else
-				{
-					goto ERROR;
-				}
-			}
-		}//shbaek: Use Report Status.
-
-
 	}
 
 	if(pRowDeviceInfo->deviceInterface == DEVICE_IF_TYPE_INTERNAL)
@@ -1799,7 +2022,7 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 	}
 
 	//1 shbaek: 2-3.Semantic Descriptor
-#if __NOT_USED__
+#if 1//__NOT_USED__
 	//shbaek: Upload Semantic Descriptor(need xM2M_AeName)
 	iRes = Grib_SemanticDescriptorUpload(&reqParam, &resParam);
 	if(iRes != GRIB_DONE)
@@ -1956,9 +2179,11 @@ int Grib_UpdateDeviceInfo(Grib_DbAll* pDbAll, char* pAuthKey)
 		}
 
 		STRCAT(gReqParam.xM2M_CON, pDbAll->ppRowDeviceInfo[i]->deviceID);
+/*
 		STRCAT(gReqParam.xM2M_CON, "(");
 		STRCAT(gReqParam.xM2M_CON, pDbAll->ppRowDeviceInfo[i]->deviceAddr);
 		STRCAT(gReqParam.xM2M_CON, ")");
+*/
 	}
 
 #ifdef FEATURE_CAS

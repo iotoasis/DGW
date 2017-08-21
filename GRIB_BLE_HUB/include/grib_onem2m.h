@@ -31,8 +31,9 @@ shbaek: Define Constant
 //shbaek: Fixed URI String
 #define ONEM2M_URI_CONTENT_CSE							"/%s/%s"
 #define ONEM2M_URI_CONTENT_POLLING_CHANNEL				"pollingchannel"
-#define ONEM2M_URI_CONTENT_EXECUTE						"execute"
 #define ONEM2M_URI_CONTENT_STATUS							"status"
+#define ONEM2M_URI_CONTENT_EXECUTE						"execute"
+#define ONEM2M_URI_CONTENT_RESULT							"result" //shbaek: ICBMS 3rd Add Req.
 
 #define ONEM2M_URI_CONTENT_SUBSCRIPTION					"subscription"
 #define ONEM2M_URI_CONTENT_LA								"la"
@@ -64,13 +65,13 @@ shbaek: Define Fixed Data
 #ifdef FEATURE_CAS	//shbaek: TBD
 #define CAS_HEAD_FORMAT_ATTR_AUTH_KEY					"Authorization: Basic %s\r\n"
 #else
-#define CAS_HEAD_FORMAT_ATTR_AUTH_KEY						""
+#define CAS_HEAD_FORMAT_ATTR_AUTH_KEY					""
 #endif
 
 /* ********** ********** ********** ********** APP ENTITY ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_CREATE					\
-		"POST /%s/%s HTTP/1.1\r\n"						\
+		"POST /~/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -82,7 +83,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_APP_ENTITY_CREATE					\
 		"{\r\n"														\
-		"    \"ae\":\r\n"											\
+		"    \"m2m:ae\":\r\n"										\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"apn\": \"%s\",\r\n"								\
@@ -96,7 +97,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_RETRIEVE					\
-		"GET /%s/%s/%s HTTP/1.1\r\n"					\
+		"GET /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -106,7 +107,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_APP_ENTITY_DELETE					\
-		"DELETE /%s/%s/%s HTTP/1.1\r\n"				\
+		"DELETE /~/%s/%s/%s HTTP/1.1\r\n"							\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -118,7 +119,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** CONTAINER ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_CREATE						\
-		"POST /%s/%s/%s HTTP/1.1\r\n"					\
+		"POST /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -130,7 +131,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_CONTAINER_CREATE						\
 		"{\r\n"														\
-		"    \"cnt\":\r\n"											\
+		"    \"m2m:cnt\":\r\n"										\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"mni\": \"%llu\",\r\n"							\
@@ -143,7 +144,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_RETRIEVE					\
-		"GET /%s/%s/%s HTTP/1.1\r\n"					\
+		"GET /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -153,7 +154,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTAINER_DELETE						\
-		"DELETE /%s/%s/%s HTTP/1.1\r\n"				\
+		"DELETE /~/%s/%s/%s HTTP/1.1\r\n"							\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -165,7 +166,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** POLLING CHANNEL ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_POLLING_CHANNEL_CREATE				\
-		"POST /%s/%s/%s HTTP/1.1\r\n"					\
+		"POST /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -177,7 +178,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_POLLING_CHANNEL_CREATE				\
 		"{\r\n"														\
-		"    \"pch\":\r\n"											\
+		"    \"m2m:pch\":\r\n"											\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"rn\": \"%s\",\r\n"								\
@@ -187,7 +188,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_SUBSCRIPTION_CREATE					\
-		"POST /%s/%s/%s HTTP/1.1\r\n"					\
+		"POST /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -199,7 +200,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_SUBSCRIPTION_CREATE					\
 		"{\r\n"														\
-		"    \"sub\":\r\n"											\
+		"    \"m2m:sub\":\r\n"										\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"enc\":\r\n"										\
@@ -216,7 +217,7 @@ shbaek: Define Fixed Data
 /* ********** ********** ********** ********** RUN TIME ********** ********** ********** ********** */
 
 #define ONEM2M_HEAD_FORMAT_CONTENT_INSTANCE_CREATE				\
-		"POST /%s/%s/%s HTTP/1.1\r\n"					\
+		"POST /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -228,7 +229,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_CONTENT_INSTANCE_CREATE				\
 		"{\r\n"														\
-		"    \"cin\":\r\n"											\
+		"    \"m2m:cin\":\r\n"										\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"et\": \"%s\",\r\n"								\
@@ -239,7 +240,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_CONTENT_INSTANCE_RETRIEVE			\
-		"GET /%s/%s/%s HTTP/1.1\r\n"					\
+		"GET /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type:application/vnd.onem2m-res+json\r\n"			\
@@ -249,7 +250,7 @@ shbaek: Define Fixed Data
 		"\r\n"
 
 #define ONEM2M_HEAD_FORMAT_LONG_POLLING							\
-		"GET /%s/%s/%s HTTP/1.1\r\n"					\
+		"GET /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+xml\r\n"					\
 		"Content-Type:application/vnd.onem2m-res+xml\r\n"			\
@@ -264,7 +265,7 @@ shbaek: Define Fixed Data
 		"[HUB_IP : %s]"
 
 #define ONEM2M_HEAD_FORMAT_SEMANTIC_DESCRIPTOR_UPLOAD			\
-		"POST /%s/%s/%s HTTP/1.1\r\n"					\
+		"POST /~/%s/%s/%s HTTP/1.1\r\n"								\
 		"Host: %s:%d\r\n"											\
 		"Accept:application/vnd.onem2m-res+json\r\n"				\
 		"Content-Type: application/vnd.onem2m-res+json; ty=%d\r\n"	\
@@ -276,7 +277,7 @@ shbaek: Define Fixed Data
 
 #define ONEM2M_BODY_FORMAT_SEMANTIC_DESCRIPTOR_UPLOAD			\
 		"{\r\n"														\
-		"    \"smd\":\r\n"											\
+		"    \"m2m:smd\":\r\n"										\
 		"    {\r\n"													\
 		"        \"lbl\": [\"%s\"],\r\n"							\
 		"        \"rn\": \"%s\",\r\n"								\
@@ -342,7 +343,7 @@ typedef struct
 	OneM2M_Operation_Type xM2M_OperationType;
 
 	char xM2M_CNF[GRIB_MAX_SIZE_SHORT];
-	char xM2M_CON[GRIB_MAX_SIZE_MIDDLE];
+	char xM2M_CON[GRIB_MAX_SIZE_DLONG];
 
 #ifdef FEATURE_CAS
 	char* authKey;
@@ -369,10 +370,14 @@ typedef struct
 
 	char xM2M_RsrcID[GRIB_MAX_SIZE_SHORT];
 	char xM2M_PrntID[GRIB_MAX_SIZE_SHORT];
-	char xM2M_Content[GRIB_MAX_SIZE_MIDDLE];
+
+	char xM2M_ContentInfo[GRIB_MAX_SIZE_BRIEF];
+	char xM2M_Content[GRIB_MAX_SIZE_DLONG];
 
 	char xM2M_CreateTime[ONEM2M_EXPIRE_TIME_STR_SIZE];
 	char xM2M_ExpireTime[ONEM2M_EXPIRE_TIME_STR_SIZE];
+
+	char cmdReq_ExecID[GRIB_MAX_SIZE_SHORT];
 }OneM2M_ResParam;
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
@@ -423,6 +428,8 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam);
 int Grib_SubsciptionCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam);
 
 
+int Grib_CmdRequestParser(OneM2M_ResParam* pResParam);
+int Grib_CmdResponseCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam, char* cmdResData);
 
 
 int Grib_UpdateHubInfo(char* pAuthKey);

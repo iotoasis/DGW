@@ -30,6 +30,7 @@ shbaek: Include File
 #include "grib_define.h"
 #include "grib_config.h"
 
+#include "grib_log.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
@@ -73,6 +74,12 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: GATTTOOL Dependency Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#define BLE_PEER_TYPE_PUBLIC								0
+#define BLE_PEER_TYPE_RANDOM								1
+
+#define BLE_DEFAULT_PEER_TYPE								BLE_PEER_TYPE_PUBLIC
+#define BLE_DEFAULT_FIND_CHAR								0xFFE1
+
 #define BLE_GATT_OPT_READ									"--char-read"
 #define BLE_GATT_OPT_WRITE_ONLY							"--char-write"
 #define BLE_GATT_OPT_WRITE_REQ							"--char-write-req"
@@ -84,9 +91,14 @@ shbaek: Include File
 #define BLE_GATT_OPT_PEER_PUBLIC							"--addr-type=public"
 #define BLE_GATT_OPT_PEER_RANDOM							"--addr-type=random"
 
+#define BLE_GATT_OPT_PEER_STR(type)						(type==BLE_PEER_TYPE_RANDOM?\
+															BLE_GATT_OPT_PEER_RANDOM:BLE_GATT_OPT_PEER_PUBLIC)
 
-
-
+#define BLE_GATT_OPT_DEBUG								"--debug"
+#define BLE_GATT_OPT_NO_WAIT								"--no-wait"
+#define BLE_GATT_OPT_CCC_NOTI								"--ccc-noti"
+#define BLE_GATT_OPT_RESPONSE								"--response"
+#define BLE_GATT_OPT_FIND_CHAR							"--find-handle"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Type Define
@@ -94,14 +106,24 @@ shbaek: Include File
 
 typedef struct
 {
-	char	addr[BLE_MAX_SIZE_ADDR+1];
-	char	handle[BLE_MAX_SIZE_HANDLE+1];
+	int     peerType;
+	char	addr[GRIB_MAX_SIZE_BLE_ADDR_STR+1];
+	uint32	handle;
+
 	char*	sendMsg;
 	char*	recvMsg;
 
+	int		notiEnable;
+	int		listen;
+	int		noWait;
+	int		debug;
+
 	char*	pipe;
 	char*	label;
-}Grib_BleDeviceInfo;
+	int     eCode;
+
+	char	findHandle[BLE_MAX_SIZE_HANDLE+1]; //shbaek: FFE1 + '\0'
+}Grib_BleMsgInfo;
 
 typedef struct
 {
@@ -116,6 +138,7 @@ typedef struct
 shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 int Grib_BleSendMsg(char* deviceAddr, char *pipeFileName, char* sendBuff, char* recvBuff);
+int Grib_BleSendRaw(Grib_BleMsgInfo* pBleMsg);
 
 int Grib_BleGetDeviceID(char* deviceAddr, char* recvBuff);
 int Grib_BleSetDeviceID(char* deviceAddr, char* deviceID, char* recvBuff);
@@ -136,7 +159,7 @@ int Grib_BleDetourInit(void);
 int Grib_BleCleanAll(void);
 int Grib_BleGetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo);
 
-int Grib_BleSendOnly(Grib_BleDeviceInfo* pBleDevice);
-int Grib_BleSendReq(Grib_BleDeviceInfo* pBleDevice);
+int Grib_BleSendReq(Grib_BleMsgInfo* pBleMsg);
+int Grib_BleGetCharHandler(Grib_BleMsgInfo* pBleMsg);
 
 #endif

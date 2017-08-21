@@ -12,8 +12,9 @@
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define AUTH_REGI_OPT_PW_OVER_WRITE								1
-#define AUTH_REGI_OPT_PW_RE_USED									2
+#define REGI_OPT_CREATE_RESOURCE									0x1
+#define REGI_OPT_PW_OVER_WRITE									0x2
+#define REGI_OPT_PW_RE_USED										0x4
 
 
 #define AUTH_HTTP_ATTR_FORMAT										"Authorization: Basic deviceId:%s"

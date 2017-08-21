@@ -9,6 +9,7 @@ shbaek: Include File
 #include <my_global.h>
 #include "grib_define.h"
 #include "grib_util.h"
+#include "grib_log.h"
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Define
@@ -234,7 +235,6 @@ typedef struct
 {
 	char  deviceID[DEVICE_MAX_SIZE_ID+1];
 	char  funcName[DEVICE_MAX_SIZE_FUNC_NAME+1];
-//	char  exRsrcID[DEVICE_MAX_SIZE_EX_RSRCID+1];
 	int   funcAttr;
 }Grib_DbRowDeviceFunc;
 

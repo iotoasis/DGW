@@ -112,7 +112,12 @@ int Grib_isHexString(char* strNum, int checkSize)
 		return FALSE;
 	}
 
-	for(i=0; i<checkSize; i++)
+	if(strStartsWith(strNum, "0x"))
+	{//shbaek: Ignore Hex Prefix ...
+		i = 2;
+	}
+
+	for(i; i<checkSize; i++)
 	{
 		isHex = isxdigit(strNum[i]);
 		if(isHex == FALSE)
@@ -124,6 +129,28 @@ int Grib_isHexString(char* strNum, int checkSize)
 	return TRUE;
 }
 
+
+int Grib_isNumString(char* strNum)
+{
+	int i = 0;
+	int isNum = FALSE;
+
+	if( (strNum==NULL) )
+	{
+		return FALSE;
+	}
+
+	for(i=0; i<strlen(strNum); i++)
+	{
+		isNum = isdigit(strNum[i]);
+		if(isNum == FALSE)
+		{
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
 
 long Grib_GetBase64EncodeSize(char* decData)
 {
@@ -280,6 +307,104 @@ int Grib_Base64Encode(char* srcBuff, char* encBuff, int opt)
 
 }
 
+int Grib_Base64EncodeBin(char* srcBuff, char* encBuff, int srcSize, int opt)
+{
+	int i = 0;
+	int iRes = GRIB_ERROR;
+	int encSize = 0;
+
+	char* pSrc = NULL;
+	char  unit = '\0';
+
+	if( (srcBuff==NULL) || (encBuff==NULL) )
+	{
+		GRIB_LOGD("# BASE64 ENC: PARAM NULL ERROR !!!\n");
+		return GRIB_ERROR;		
+	}
+
+	while( BASE64_ENC_SRC_BYTE <= (srcSize-encSize) )
+	{
+		pSrc = srcBuff + encSize;
+		unit = '\0';
+
+		//shbaek: 1st Unit Encode
+		unit = (pSrc[0] >> 2) & BIT_MASK_6;
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 2nd Unit Encode
+		unit = ((pSrc[0] & BIT_MASK_2) << 4) + ((pSrc[1] >> 4) & BIT_MASK_4);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 3rd Unit Encode
+		unit = ((pSrc[1] & BIT_MASK_4) << 2) + ((pSrc[2] >> 6) & BIT_MASK_2);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+		
+		//shbaek: 4th Unit Encode
+		unit = (pSrc[2] & BIT_MASK_6);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		encSize += BASE64_ENC_SRC_BYTE;
+	}
+
+	if( (srcSize%BASE64_ENC_SRC_BYTE) == 2 )
+	{
+		pSrc = srcBuff + encSize;
+		unit = '\0';
+
+		//shbaek: 1st Unit Encode
+		unit = (pSrc[0] >> 2) & BIT_MASK_6;
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 2nd Unit Encode
+		unit = ((pSrc[0] & BIT_MASK_2) << 4) + ((pSrc[1] >> 4) & BIT_MASK_4);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 3rd Unit Partial Encode
+		unit = ((pSrc[1] & BIT_MASK_4) << 2);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 4th Unit Pad
+		encBuff[i] = BASE64_PAD;
+		i++;
+	}
+
+	if( (srcSize%BASE64_ENC_SRC_BYTE) == 1 )
+	{
+		pSrc = srcBuff + encSize;
+		unit = '\0';
+
+		//shbaek: 1st Unit Encode
+		unit = (pSrc[0] >> 2) & BIT_MASK_6;
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 2nd Unit Partial Encode
+		unit = ((pSrc[0] & BIT_MASK_2) << 4);
+		encBuff[i] = BASE64TABLE[unit];
+		i++;
+
+		//shbaek: 4th Unit Pad
+		encBuff[i] = BASE64_PAD;
+		i++;
+
+		//shbaek: 4th Unit Pad
+		encBuff[i] = BASE64_PAD;
+		i++;
+	}
+
+	encBuff[i] = '\0';
+
+	return GRIB_DONE;
+
+}
+
 int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt)
 {
 	int i = 0;
@@ -336,6 +461,60 @@ int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt)
 	return GRIB_DONE;
 }
 
+int Grib_Base64DecodeBin(char* srcBuff, char* decBuff, int srcSize, int opt)
+{
+	int i = 0;
+	int iRes = GRIB_ERROR;
+	int decSize = 0;
+
+	int unit1 = 0;
+	int unit2 = 0;
+	int unit3 = 0;
+	int unit4 = 0;
+
+	char* pSrc = NULL;
+
+	if( (srcBuff==NULL) || (decBuff==NULL) )
+	{
+		GRIB_LOGD("# BASE64 DEC: PARAM NULL ERROR !!!\n");
+		return GRIB_ERROR;		
+	}
+
+	if(srcSize % BASE64_DEC_SRC_BYTE != 0)
+	{//shbaek: In-Valid Base64 Data Size
+		GRIB_LOGD("# BASE64 DEC: INVALID SOURCE SIZE !!!\n");
+		return GRIB_ERROR;
+	}
+
+	while( BASE64_DEC_SRC_BYTE <= (srcSize-decSize) )
+	{
+		pSrc = srcBuff + decSize;
+
+		unit1 = Grib_GetBase64Value(pSrc[0]);
+		unit2 = Grib_GetBase64Value(pSrc[1]);
+		unit3 = Grib_GetBase64Value(pSrc[2]);
+		unit4 = Grib_GetBase64Value(pSrc[3]);
+
+		//shbaek: 1st Data Decode
+		decBuff[i] = (unit1 << 2) + (unit2 >> 4);
+		i++;
+
+		//shbaek: 2nd Data Decode
+		decBuff[i] = (unit2 << 4) + (unit3 >> 2);
+		i++;
+
+		//shbaek: 3rd Data Decode
+		decBuff[i] = (unit3 << 6) + unit4;
+		i++;
+
+		decSize += BASE64_DEC_SRC_BYTE;
+	}
+
+	decBuff[i] = '\0';
+
+	return GRIB_DONE;
+}
+
 
 int skipSpace(char **str2Buff)
 {
@@ -355,6 +534,11 @@ int skipSpace(char **str2Buff)
 //shbaek: returns 1 if line starts with prefix, 0 if it does not */
 int strStartsWith(const char *line, const char *prefix)
 {
+	if( (line==NULL) || (prefix==NULL) )
+	{
+		return 0;
+	}
+
 	for ( ; (*line!='\0') && (*prefix!='\0'); line++, prefix++)
 	{
 		if (*line != *prefix)
@@ -526,6 +710,43 @@ int Grib_GetHostName(char* pBuff)
 	STRNCPY(pBuff, strHostName, STRLEN(strHostName));
 
 	return GRIB_DONE;
+}
+
+int Grib_GetDnsIP(char* domain, char** ip)
+{
+	const char* FUNC = "GET-DNS_IP";
+	int iRes = GRIB_ERROR;
+	int i = 0;
+
+	hostent* pHost = NULL;
+
+	if( (!domain) || (!ip) )
+	{
+		GRIB_LOGD("# %s: PARAM IS NULL !!!", FUNC);
+		return GRIB_ERROR;
+	}
+
+	pHost = gethostbyname(domain);
+	if(!pHost)
+	{
+		GRIB_LOGD("# %s: GET HOST NAME FAIL !!!", FUNC);
+		return GRIB_ERROR;
+	}
+
+	for(i=0; pHost->h_addr_list[i]!=NULL; i++)
+	{
+		const char* ipAddr = inet_ntoa( *(struct in_addr*)pHost->h_addr_list[i]);
+
+		if(0<STRLEN(ipAddr))
+		{
+			*ip = STRDUP(ipAddr);
+			GRIB_LOGD("# %s: HOST[%02d] NAME:%s ADDR:%s\n", FUNC, i, pHost->h_name, *ip);
+			break;
+		}
+	}
+	GRIB_LOGD("\n");
+
+	return iRes;
 }
 
 int Grib_GetIPAddr(char* pBuff)
@@ -806,14 +1027,13 @@ int Grib_StrToHex(char* strBuff, char* hexBuff)
 }
 
 //shbaek: "114D" (4Byte String) -> 0x11 0x4D (2Byte Binary)
-int Grib_HexToBin(char* hexBuff, char* binBuff)
+int Grib_HexToBin(char* hexBuff, char* binBuff, int strSize)
 {
 	int i = 0;
 	int pos = 0;
 	char strBin[3] = {'\0', };
-	//isxdigit
 
-	for(i=0; i+1<strlen(hexBuff); i+=2)
+	for(i=0; i+1<strSize; i+=2)
 	{
 		memset(strBin, '\0', sizeof(strBin));
 		strBin[0] = hexBuff[i+0];
@@ -824,43 +1044,6 @@ int Grib_HexToBin(char* hexBuff, char* binBuff)
 	}
 
 	return i;
-}
-
-void Grib_PrintHex(const char* LABEL, char* pHexBuff, int iSize)
-{
-	int i = 0;
-
-	GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
-	GRIB_LOGD("# %s[%d]:", LABEL, iSize);
-
-	for(i=0; i<iSize; i++)
-	{
-		if(i%10 == 0)GRIB_LOGD("\n");
-		GRIB_LOGD("0x%02X ", pHexBuff[i]);
-	}
-	GRIB_LOGD("\n");
-	GRIB_LOGD("# ##### ##### ##### ##### ##### ##### ##### #####\n");
-
-	return;
-}
-
-void Grib_PrintOnlyHex(char* pHexBuff, int iSize)
-{
-	int i = 0;
-
-	for(i=0; i<iSize; i++)
-	{
-		if(i%10 == 0)
-		{
-			if(i != 0)GRIB_LOGD("\n");
-			GRIB_LOGD("  ");
-		}
-
-		GRIB_LOGD("%02X ", pHexBuff[i]);
-		if(i==iSize-1)GRIB_LOGD("\n");
-	}
-
-	return;
 }
 
 long Grib_GetStackLimit(void)

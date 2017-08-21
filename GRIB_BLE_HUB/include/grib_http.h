@@ -22,6 +22,8 @@ shbaek: Include File
 #include "grib_define.h"
 #include "grib_util.h"
 
+#include "grib_log.h"
+
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Constant
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -38,6 +40,9 @@ shbaek: Define Constant
 
 #define HTTP_TIME_OUT_SEC_CONNECT							10
 #define HTTP_TIME_OUT_SEC_RECEIVE							100 //shbaek: Long Polling Time Out -> 90 Sec
+
+#define HTTP_ENC_TYPE_NONE								0
+#define HTTP_ENC_TYPE_BASE64								1
 
 #define HTTP_VERSION_1P1									"HTTP/1.1"
 
@@ -107,7 +112,7 @@ typedef enum
 	HTTP_STATUS_CODE_GONE								= 410,
 
 	HTTP_STATUS_CODE_BASE_SERVER_ERROR				= 500,
-	HTTP_STATUS_CODE_INTERNAL_SERVER_ERROR			= 500,
+	HTTP_STATUS_CODE_INTERNAL_SERVER_ERROR			= 501,
 	HTTP_STATUS_CODE_NOT_IMPLEMENT					= 502,
 	HTTP_STATUS_CODE_BAD_GATEWAY						= 503,
 	HTTP_STATUS_CODE_SERVICE_UNAVAILABLE			= 504,
