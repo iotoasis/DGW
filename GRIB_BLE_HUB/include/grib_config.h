@@ -81,9 +81,9 @@ void Grib_ShowConfig(Grib_ConfigInfo* pConfigInfo);
 int	 Grib_LoadConfig(Grib_ConfigInfo* pConfigInfo);
 int Grib_GetConfigDB(void);
 
-int Grib_TestDB(int argc, char **argv);
-int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo);
 int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo);
+int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo);
+int Grib_SetConfigSmd(Grib_ConfigInfo* pConfigInfo);
 int Grib_SetConfigEtc(Grib_ConfigInfo* pConfigInfo);
 
 #endif

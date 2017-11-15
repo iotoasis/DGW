@@ -6,10 +6,10 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Global Variable
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-int gDebugSmd = FALSE;
+int 	gDebugSmd = FALSE;
 
-char gSmdServerIp[GRIB_MAX_SIZE_IP_STR+1];
-int  gSmdServerPort;
+char* 	gSmdServerIp;
+int 	gSmdServerPort;
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define __SMD_FUNC__
@@ -38,9 +38,7 @@ int Grib_SmdSetServerConfig(void)
 		return GRIB_ERROR;
 	}
 
-	STRINIT(gSmdServerIp, sizeof(gSmdServerIp));
-	STRNCPY(gSmdServerIp, pConfigInfo->smdServerIP, STRLEN(pConfigInfo->smdServerIP));
-
+	gSmdServerIp = STRDUP( pConfigInfo->smdServerIP);
 	gSmdServerPort = pConfigInfo->smdServerPort;
 
 	GRIB_LOGD("# SMD SERVER CONFIG: %s:%d\n", gSmdServerIp, gSmdServerPort);
@@ -144,7 +142,7 @@ int Grib_SmdGetDeviceInfo(char* deviceID, char* smdBuff)
 {
 	int iDBG = gDebugSmd;
 	int iRes = GRIB_ERROR;
-	
+
 	Grib_HttpMsgInfo httpMsg;
 
 	char sendBuff[HTTP_MAX_SIZE_SEND_MSG]	= {'\0', };

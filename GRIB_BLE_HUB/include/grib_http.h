@@ -27,6 +27,7 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Constant
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
+#define HTTP_MAX_LINE_SIZE								(SIZE_1K * 8)
 #define HTTP_MAX_SIZE										(SIZE_1K * 128)
 
 #define HTTP_MAX_SIZE_SEND_MSG							HTTP_MAX_SIZE

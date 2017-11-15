@@ -11,15 +11,27 @@ CFLAGS=-Wall -c
 #CXXFLAGS=-Wall -g
 CXXFLAGS=-w -g
 
+TEMP_OS=$(shell sed -n '/^ID=/p' "/etc/os-release")
+OS=$(subst ID=,,$(TEMP_OS))
+
 # ########## ########## ########## ########## ########## ##########
 # shbaek: COMMON VALUE
 # ########## ########## ########## ########## ########## ##########
 COM_FEATURE	=	-DFEATURE_GRIB
 
 COM_INC		= 	-Iinclude						\
+				-I/usr/include/mysql
 
+ifeq ($(OS), "centos")
 COM_LIB		=	-L/usr/lib/arm-linux-gnueabihf	\
+				-L/usr/lib64/mysql				\
+				-lmysqlclient					\
 				-lz -lm -ldl
+else
+COM_LIB		=	-L/usr/lib/arm-linux-gnueabihf	\
+				-lmysqlclient					\
+				-lz -lm -ldl
+endif
 
 COM_OBJ		=	grib_util.o						\
 				grib_log.o						\
@@ -31,11 +43,9 @@ COM_OBJ		=	grib_util.o						\
 # ########## ########## ########## ########## ########## ##########
 REBOOT_TARGET	=	grib_reboot
 
-REBOOT_INC		= 	$(COM_INC)						\
-			  		-I/usr/include/mysql
+REBOOT_INC		= 	$(COM_INC)
 
-REBOOT_LIB		=	$(COM_LIB)						\
-				 	-lmysqlclient
+REBOOT_LIB		=	$(COM_LIB)
 
 REBOOT_OBJ		=	$(COM_OBJ)						\
 					grib_reboot.o
@@ -47,12 +57,10 @@ REBOOT_SRC 		= 	$(REBOOT_OBJ:.o=.cpp)
 # ########## ########## ########## ########## ########## ##########
 HCI_TARGET	=	grib_hci
 
-HCI_INC		= 	$(COM_INC)						\
-			  	-I/usr/include/mysql
+HCI_INC		= 	$(COM_INC)
 
 HCI_LIB		=	$(COM_LIB)						\
-				-lbluetooth						\
-			 	-lmysqlclient
+				-lbluetooth
 
 HCI_OBJ		=	$(COM_OBJ)						\
 				grib_hci.o
@@ -60,37 +68,19 @@ HCI_OBJ		=	$(COM_OBJ)						\
 HCI_SRC 	= 	$(HCI_OBJ:.o=.cpp)
 
 # ########## ########## ########## ########## ########## ##########
-# shbaek: FOR C-JSON
-# ########## ########## ########## ########## ########## ##########
-CJSON_PATH 	= 	${CURDIR}/libs/libcjson
-
-CJSON_INC	= 	-I${CJSON_PATH}					\
-			  	-L${CJSON_PATH}
-
-CJSON_LIB	=	-lcjson							\
-			 	-lcjson_utils
-
-CJSON_OBJ	=	${CJSON_PATH}/cJSON.o			\
-				${CJSON_PATH}/cJSON_Utils.o
-
-CJSON_SRC 	= 	$(CJSON_OBJ:.o=.c)
-
-# ########## ########## ########## ########## ########## ##########
 # shbaek: FOR CAS
+# FEATURE: -DFEATURE_CAS or -DFEATURE_CAS_NOT_USED
 # ########## ########## ########## ########## ########## ##########
-#CAS_FEATURE	=	-DFEATURE_CAS
 CAS_FEATURE	=	-DFEATURE_CAS_NOT_USED
 
+ifeq (${CAS_FEATURE}, -DFEATURE_CAS)
 CAS_PATH 	= 	${CURDIR}/libs/cas_package
-
 CAS_INC		= 	-I${CAS_PATH}
-
 CAS_LIB		=	-L${CAS_PATH}					\
 				-lTrustNETCASClient				\
 				-lTrustNETCASCstk
-
 CAS_OBJ		=	grib_cas.o
-
+endif
 # ########## ########## ########## ########## ########## ##########
 # shbaek: FOR GRIB BLE HUB
 # ########## ########## ########## ########## ########## ##########
@@ -100,14 +90,12 @@ BLE_HUB_FEATURE	=	$(COM_FEATURE) \
 BLE_HUB_TARGET	= 	grib_ble_hub
 
 BLE_HUB_INC		= 	$(COM_INC)						\
-				  	$(CAS_INC)						\
-				  	-I/usr/include/mysql
+				  	$(CAS_INC)
 
 BLE_HUB_LIB		=	$(COM_LIB)						\
 					$(CAS_LIB)						\
 					-lpthread 						\
-					-lbluetooth 					\
-				 	-lmysqlclient
+					-lbluetooth
 
 BLE_HUB_OBJ 	=	$(COM_OBJ)						\
 					$(CAS_OBJ)						\

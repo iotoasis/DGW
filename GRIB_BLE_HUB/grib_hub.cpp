@@ -51,6 +51,8 @@ void Grib_MenuHelp(void)
 
 void Grib_MenuConfig(int argc, char **argv)
 {
+	const char* FUNC = "CONFIG-MENU";
+
 	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	int   iRes = GRIB_ERROR;
@@ -138,7 +140,38 @@ void Grib_MenuConfig(int argc, char **argv)
 
 		return;	
 	}
-	
+
+	if(STRNCASECMP(subMenu, "SMD", STRLEN("SMD"))==0)
+	{
+		pConfigInfo = Grib_GetConfigInfo();
+		if(pConfigInfo == NULL)
+		{
+			GRIB_LOGD("# LOAD CONFIG ERROR !!!\n");
+			return;
+		}
+
+		if(STRLEN(argv[GRIB_CMD_ARG1]) != 0)
+		{
+			STRINIT(pConfigInfo->smdServerIP, sizeof(pConfigInfo->smdServerIP));
+			STRNCPY(pConfigInfo->smdServerIP, argv[GRIB_CMD_ARG1], STRLEN(argv[GRIB_CMD_ARG1]));
+		}
+		if(STRLEN(argv[GRIB_CMD_ARG2]) != 0)
+		{
+			pConfigInfo->smdServerPort = ATOI(argv[GRIB_CMD_ARG2]);
+		}
+
+		iRes = Grib_SetConfigSmd(pConfigInfo);
+		if(iRes != GRIB_DONE)
+		{
+			GRIB_LOGD("# SET CONFIG SMD ERROR !!!\n");
+			return;
+		}
+		GRIB_LOGD("# SET CONFIG SMD DONE ...\n");
+		Grib_ShowConfig(pConfigInfo);
+
+		return;	
+	}
+
 	if(STRNCASECMP(subMenu, "ETC", STRLEN("ETC"))==0)
 	{
 		pConfigInfo = Grib_GetConfigInfo();
@@ -174,6 +207,8 @@ void Grib_MenuConfig(int argc, char **argv)
 
 		return;	
 	}
+
+	Grib_ErrLog(FUNC, "INVALID ARG !!!");
 
 	return;
 }
@@ -329,6 +364,12 @@ void Grib_MenuDeRegi(int argc, char **argv)
 		{//shbaek: Regi Hub Self
 			delOneM2M = TRUE;
 		}
+
+		if(STRNCASECMP(option, "ALL", STRLEN("ALL"))==0)
+		{//shbaek: Delete All Local Device Info
+
+		}
+
 	}
 
 	Grib_DeviceDeRegi(deviceID, delOneM2M);
@@ -413,30 +454,6 @@ void Grib_MenuBle(int argc, char **argv)
 		Grib_BleSendRaw(&bleMsg);
 	}
 
-	if(STRCASECMP(subMenu, "req") == 0)
-	{
-		char* deviceAddr = argv[GRIB_CMD_ARG1];
-		char* charHandle = argv[GRIB_CMD_ARG2];
-		char* strBuff = argv[GRIB_CMD_ARG3];
-
-		char* hexBuff = NULL;
-
-		Grib_BleMsgInfo bleMsg;
-
-		MEMSET(&bleMsg, 0x00, sizeof(bleMsg));
-
-		hexBuff = (char*)MALLOC(STRLEN(strBuff)*2+1);
-		Grib_StrToHex(strBuff, hexBuff);
-
-		STRNCPY(bleMsg.addr, deviceAddr, STRLEN(deviceAddr));
-		STRNCPY(bleMsg.handle, charHandle, STRLEN(charHandle));
-
-		bleMsg.sendMsg = hexBuff;
-		bleMsg.label = "TEST";
-
-		Grib_BleSendReq(&bleMsg);
-	}
-
 	if(STRCASECMP(subMenu, "char") == 0)
 	{
 		char* deviceAddr = argv[GRIB_CMD_ARG1];
@@ -466,13 +483,13 @@ void Grib_MenuBle(int argc, char **argv)
 		GRIB_LOGD("# MENU-BLE: [MAIN: %s] [SUB: %s] DONE ...\n", argv[GRIB_CMD_MAIN], argv[GRIB_CMD_SUB]);
 	}
 
-
-
 	return;
 }
 
 void Grib_MenuDb(int argc, char **argv)
 {
+	const char* FUNC = "MENU-DB";
+
 	int   i = 0;
 	int   x = 0;
 	int	  iRes = GRIB_ERROR;
@@ -494,11 +511,13 @@ void Grib_MenuDb(int argc, char **argv)
 		Grib_DbCreate();
 		Grib_GetConfigDB();
 		Grib_DbClose();
+		return;
 	}
 	if(STRCASECMP(subMenu, "drop") == 0)
 	{
 		Grib_DbDrop();
 		Grib_DbClose();
+		return;
 	}
 	if(STRCASECMP(subMenu, "cache") == 0)
 	{
@@ -580,24 +599,41 @@ LOOP_TEST:
 		//GRIB_LOGD("\n");
 
 		Grib_DoubleFree((void **)pDbAll->ppRowDeviceInfo, pDbAll->deviceCount);
+		return;
 	}
 	if(STRCASECMP(subMenu, "delete") == 0)
 	{
 		deviceID 	= GRIB_CMD_ARG1[argv];
 
-		iRes = Grib_DbDelDeviceFunc(deviceID);
-		if(iRes == GRIB_ERROR)
-		{
-			GRIB_LOGD("# DELETE DEVICE FUNC FAIL\n");
-			return;
+		if(STRCASECMP(deviceID, "all") == 0)
+		{//shbaek: Delete All ...
+			iRes = Grib_DbDelDeviceAll();
+			if(iRes == GRIB_ERROR)
+			{
+				Grib_ErrLog(FUNC, "DELETE DEVICE ALL ERROR !!!");
+				return;
+			}
 		}
-		
-		iRes = Grib_DbDelDeviceInfo(deviceID);
-		if(iRes == GRIB_ERROR)
-		{
-			GRIB_LOGD("# DELETE DEVICE INFO FAIL\n");
+		else
+		{//shbaek: Need Device ID
+			iRes = Grib_DbDelDeviceFunc(deviceID);
+			if(iRes == GRIB_ERROR)
+			{
+				GRIB_LOGD("# DELETE DEVICE FUNC FAIL\n");
+				return;
+			}
+
+			iRes = Grib_DbDelDeviceInfo(deviceID);
+			if(iRes == GRIB_ERROR)
+			{
+				GRIB_LOGD("# DELETE DEVICE INFO FAIL\n");
+				return;
+			}
 		}
+		return;
 	}
+
+	Grib_ErrLog(FUNC, "INVALID ARG !!!");
 
 	return;
 }
@@ -1288,7 +1324,19 @@ void Grib_MenuTest(int argc, char **argv)
 		return;
 	}
 
-	
+#ifdef FEATURE_CAS
+	if(STRCASECMP(subMenu, "cas") == 0)
+	{
+		char* url = argv[GRIB_CMD_ARG1];
+		hostent* pHost = NULL;
+		int i = 0;
+
+		Grib_CasTest(argc, argv);
+		GRIB_LOGD("# TEST-CAS: DONE ...\n");
+
+		return;
+	}
+#endif
 
 	return;
 }

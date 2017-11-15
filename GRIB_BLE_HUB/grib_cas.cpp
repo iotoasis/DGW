@@ -71,6 +71,7 @@ int Grib_CasInit(char* hubID)
 
 FINAL:
 	Grib_CasFinal();
+
 	return iRes;
 }
 
@@ -255,7 +256,7 @@ void Grib_CasTest(int argc, char **argv)
 		devID = argv[3];
 	}
 
-	iRes = Grib_CasInit(pConfigInfo->hubID);
+	iRes = Grib_CasInit(hubID);
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# %s: INIT FAIL !!!\n", FUNC);

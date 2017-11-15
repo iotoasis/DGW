@@ -9,8 +9,6 @@ shbaek: Global Variable
 int  gHttpDebug = FALSE;
 int  gHttpTombStone = FALSE;
 
-//2 shbaek: Return Recv Byte
-char gLineBuff[HTTP_MAX_SIZE];
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define __HTTP_FUNC__
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
@@ -89,7 +87,7 @@ int Grib_HttpConnect(char* serverIP, int serverPort)
 	iFD = socket(AF_INET, SOCK_STREAM, 0);
 	if(iFD < 0)
 	{
-		GRIB_LOGD("SOCKET OPEN FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		GRIB_LOGD("# SOCKET OPEN FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
 		return GRIB_ERROR;
 	}
 
@@ -105,7 +103,7 @@ int Grib_HttpConnect(char* serverIP, int serverPort)
 	iRes = connect(iFD, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
 	if(iRes != GRIB_SUCCESS)
 	{
-		GRIB_LOGD("HTTP CONNECT FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		GRIB_LOGD("# HTTP CONNECT FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
 		return GRIB_ERROR;
 	}
 
@@ -229,6 +227,8 @@ int Grib_HttpConnectTimeOut(char* serverIP, int serverPort)
 
 int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 {
+	const char* FUNC = "HTTP-PARSER";
+
 	int i = 0;
 	int iRes = GRIB_ERROR;
 	int iLoopMax = 128;
@@ -237,6 +237,7 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 	char* strToken		= NULL;
 	char* str1Line		= NULL;
 	char* strResponse	= NULL;
+	char* strSave		= NULL;
 
 	char* strHttpVer	= NULL;
 	char* strCodeNum	= NULL;
@@ -244,7 +245,7 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 
 	if( (pMsg==NULL) || (pMsg->recvBuff==NULL) )
 	{
-		GRIB_LOGD("# PARAM IS NULL\n");
+		Grib_ErrLog(FUNC, "IN-VALID PARAM !!!");
 		return GRIB_ERROR;
 	}
 
@@ -256,21 +257,34 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 	strResponse = STRDUP(pMsg->recvBuff);
 	if(strResponse == NULL)
 	{
-		GRIB_LOGD("# RESPONSE COPY ERROR\n");
+		GRIB_LOGD("# %s-HTTP: %c[1;31mRESPONSE COPY ERROR !!!%c[0m\n", pMsg->LABEL, 27, 27);
+		iRes = GRIB_ERROR;
 		goto FINAL;
 	}
 
-	str1Line = STRTOK(strResponse, strToken);
+	str1Line = STRTOK_R(strResponse, strToken, &strSave);
 	if(str1Line == NULL)
 	{
-		GRIB_LOGD("# 1ST LINE IS NULL !!!\n");
+		GRIB_LOGD("# %s-HTTP: %c[1;31mTOKEN ERROR !!!%c[0m\n", pMsg->LABEL, 27, 27);
+		if(iDBG)
+		{
+			GRIB_LOGD("# %s-HTTP: TOKEN BUFF[%d]:\n%s\n", pMsg->LABEL, STRLEN(pMsg->recvBuff), pMsg->recvBuff);
+			GRIB_LOGD("# %s-HTTP: TOKEN DUMP[%d]:\n%s\n", pMsg->LABEL, STRLEN(strResponse), strResponse);
+		}
+		iRes = GRIB_ERROR;
 		goto FINAL;
 	}
 
 	iRes = STRNCMP(str1Line, HTTP_VERSION_1P1, STRLEN(HTTP_VERSION_1P1));
 	if(iRes != 0)
 	{//shbaek: is not Same? Something Wrong
-		GRIB_LOGD("# 1ST LINE IS WRONG: %s\n", str1Line);
+		GRIB_LOGD("# %s-HTTP: %c[1;31mPARSING ERROR !!!%c[0m\n", pMsg->LABEL, 27, 27);
+		if(iDBG)
+		{
+			GRIB_LOGD("# %s-HTTP: PARSING BUFF[%d]:\n%s\n", pMsg->LABEL, STRLEN(pMsg->recvBuff), pMsg->recvBuff);
+			GRIB_LOGD("# %s-HTTP: PARSING DUMP[%d]:\n%s\n", pMsg->LABEL, STRLEN(strResponse), strResponse);
+		}
+		iRes = GRIB_ERROR;
 		goto FINAL;
 	}
 
@@ -280,7 +294,7 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
  *			HTTP/1.1 404 Not Found
  *			[1:Space] [3:Number Count]
  */
-	
+
 	strHttpVer = str1Line;
 	strCodeNum = strHttpVer+STRLEN(HTTP_VERSION_1P1)+1;
 	strCodeMsg = strCodeNum+3+1;
@@ -288,15 +302,17 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 	*(strCodeNum-1) = NULL;
 	*(strCodeMsg-1) = NULL;
 
-	pMsg->statusCode= ATOI(strCodeNum);
+	pMsg->statusCode = ATOI(strCodeNum);
 
 	STRINIT(pMsg->statusMsg, sizeof(pMsg->statusMsg));
 	STRNCPY(pMsg->statusMsg, strCodeMsg, STRLEN(strCodeMsg));
 
+	iRes = GRIB_DONE;
+
 FINAL:
 	if(strResponse!=NULL)FREE(strResponse);
 
-	return GRIB_DONE;
+	return iRes;
 }
 
 int Grib_Recv1Line(int iFD, char* lineBuff, int buffSize, int opt)
@@ -339,20 +355,23 @@ int Grib_RecvChunked(int iFD, char* recvBuff, int buffSize, int opt)
 	int recvSize = 0;
 
 	char* pEndPoint = "\r\n";
+	char* pLineBuff = NULL;
 
-	do{
-		
-		STRINIT(gLineBuff, sizeof(gLineBuff));
+	pLineBuff = (char*) MALLOC(HTTP_MAX_LINE_SIZE);
+
+	do{		
+		MEMSET(pLineBuff, GRIB_INIT, HTTP_MAX_LINE_SIZE);
+
 		if(recvSize == 0)recvSize = buffSize;
 		else recvSize = recvSize+STRLEN(GRIB_CRLN);
 
-		iCount = Grib_Recv1Line(iFD, gLineBuff, recvSize, GRIB_NOT_USED);
+		iCount = Grib_Recv1Line(iFD, pLineBuff, recvSize, GRIB_NOT_USED);
 		if(iCount < 0)
 		{//shbaek: Recv Error
 			GRIB_LOGD("# RECV CHUNKED FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
-			return GRIB_FAIL;
+			break;
 		}
-		else if( (iCount==3) && (gLineBuff[0]=='0') )
+		else if( (iCount==3) && (pLineBuff[0]=='0') )
 		{//shbaek: Recv End
 			if(iDBG)GRIB_LOGD("# NO MORE RECV DATA\n");
 
@@ -361,10 +380,10 @@ int Grib_RecvChunked(int iFD, char* recvBuff, int buffSize, int opt)
 
 			break;
 		}
-		else if( (iCount <= HTTP_MAX_SIZE_CHUNKED_HEX_STR) && Grib_isHexString(gLineBuff, iCount-STRLEN(GRIB_CRLN)))
+		else if( (iCount <= HTTP_MAX_SIZE_CHUNKED_HEX_STR) && Grib_isHexString(pLineBuff, iCount-STRLEN(GRIB_CRLN)))
 		{//shbaek: Size Data
-			recvSize = strtol(gLineBuff, &pEndPoint, 16);
-			if(iDBG)GRIB_LOGD("# NEXT RECV SIZE[%d]: %s\n", recvSize, gLineBuff);
+			recvSize = strtol(pLineBuff, &pEndPoint, 16);
+			if(iDBG)GRIB_LOGD("# NEXT RECV SIZE[%d]: %s\n", recvSize, pLineBuff);
 
 		}
 		else
@@ -373,25 +392,27 @@ int Grib_RecvChunked(int iFD, char* recvBuff, int buffSize, int opt)
 
 			if( recvSize != buffSize)
 			{
-				if( (gLineBuff[iCount-2]=='\r') && (gLineBuff[iCount-1]=='\n') )
+				if( (pLineBuff[iCount-2]=='\r') && (pLineBuff[iCount-1]=='\n') )
 				{
 					iCopySize -= STRLEN(GRIB_CRLN);
 					if(iDBG)GRIB_LOGD("# END IS CR LF\n");
 				}				
 			}
-			MEMCPY(recvBuff+iTotal, gLineBuff, iCopySize);
+			MEMCPY(recvBuff+iTotal, pLineBuff, iCopySize);
 
 			iTotal += iCopySize;
 			recvSize = 0; //shbaek: for Chunked Data Size
 			if(iDBG)
 			{
 				GRIB_LOGD("# RECV:%d COPY:%d TOTAL:%d\n", iCount, iCopySize, iTotal);
-				GRIB_LOGD("# ONLY DATA[%d]: %s\n", iCount, gLineBuff);
+				GRIB_LOGD("# ONLY DATA[%d]: %s\n", iCount, pLineBuff);
 			}
 		}
 	}while(iTotal < buffSize);
-	
 
+FINAL:
+
+	FREE(pLineBuff);
 	return iTotal;
 }
 
@@ -403,12 +424,10 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 
 	int iFD 	= 0;
 	int iError	= FALSE;
-
 	int isChunk = FALSE;
 
-	int iTimeCheck = gHttpDebug;
-	time_t sysTimer;
-	struct tm *sysTime;
+	char* pLineBuff = NULL;
+	char  dbgTime[GRIB_MAX_SIZE_TIME_STR] = {'\0', };
 	Grib_HttpLogInfo httpLogInfo;
 
 	if( pMsg == NULL)
@@ -431,6 +450,10 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 
 	iCount = -1;
 	iTotal = 0;
+
+	pLineBuff = (char*) MALLOC(HTTP_MAX_LINE_SIZE);
+	MEMSET(pLineBuff, GRIB_INIT, HTTP_MAX_LINE_SIZE);
+
 	MEMSET(pMsg->recvBuff, GRIB_INIT, HTTP_MAX_SIZE_RECV_MSG);
 	MEMSET(&httpLogInfo, 0x00, sizeof(httpLogInfo));
 	if( STRLEN(pMsg->LABEL) <= 0)
@@ -454,13 +477,6 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 		goto FINAL;
 	}
 
-	if(iTimeCheck)
-	{//2 shbaek: TIME CHECK
-		sysTimer = time(NULL);
-		sysTime  = localtime(&sysTimer);
-		GRIB_LOGD("# SEND BEGIN TIME: %02d:%02d:%02d\n", sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
-	}
-
 	iCount = send(iFD, pMsg->sendBuff, STRLEN(pMsg->sendBuff), GRIB_NOT_USED);
 	if(iCount <= 0)
 	{
@@ -470,15 +486,18 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 		iError = TRUE;
 		goto FINAL;
 	}
-	if(iDBG)GRIB_LOGD("# %s-HTTP-MSG: SEND DONE [TOTAL: %d]\n", httpLogInfo.httpSender, iCount);
+	if(iDBG)
+	{
+		Grib_GetCurrDateTime(dbgTime);
+		GRIB_LOGD("# %s-HTTP: SEND DONE [TIME: %s] [SIZE: %d]\n", httpLogInfo.httpSender, dbgTime, iCount);
+	}
 
 	do{
-		MEMSET(gLineBuff, 0x00, sizeof(gLineBuff));
-//		iCount = recv(iFD, (pMsg->recvBuff+iTotal), (HTTP_MAX_SIZE_RECV_MSG-iTotal), GRIB_NOT_USED);
-		iCount = Grib_Recv1Line(iFD, gLineBuff, sizeof(gLineBuff), GRIB_NOT_USED);
+		MEMSET(pLineBuff, 0x00, HTTP_MAX_LINE_SIZE);
+		iCount = Grib_Recv1Line(iFD, pLineBuff, HTTP_MAX_LINE_SIZE, GRIB_NOT_USED);
 		if(iCount < 0)
 		{
-			GRIB_LOGD("# %s-HTTP-MSG: RECV FAIL: %s[%d]\n", httpLogInfo.httpSender, LINUX_ERROR_STR, LINUX_ERROR_NUM);
+			GRIB_LOGD("# %s-HTTP: RECV FAIL: %s[%d]\n", httpLogInfo.httpSender, LINUX_ERROR_STR, LINUX_ERROR_NUM);
 			STRINIT(httpLogInfo.httpErrMsg, sizeof(httpLogInfo.httpErrMsg));
 			SNPRINTF(httpLogInfo.httpErrMsg, sizeof(httpLogInfo.httpErrMsg), "%s [%s (%d)]", "RECV ERROR", LINUX_ERROR_STR, LINUX_ERROR_NUM);
 			iError = TRUE;
@@ -494,41 +513,49 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 			}
 			else
 			{//shbaek: Done ...
-				if(iDBG)GRIB_LOGD("# %s-HTTP-MSG: RECV DONE [TOTAL: %d]\n", httpLogInfo.httpSender, iTotal);
+				if(iDBG)
+				{
+					Grib_GetCurrDateTime(dbgTime);
+					GRIB_LOGD("# %s-HTTP: RECV DONE [TIME: %s] [SIZE: %d]\n", httpLogInfo.httpSender, dbgTime, iTotal);
+				}
 			}
 			break;
 		}
 		else
 		{
-			MEMCPY(pMsg->recvBuff+iTotal, gLineBuff, iCount);
+			MEMCPY(pMsg->recvBuff+iTotal, pLineBuff, iCount);
 
 			iTotal += iCount;
 			//if(iDBG)GRIB_LOGD("# RECV: %d\n", iCount);
 
-			if(!STRNCASECMP(gLineBuff, HTTP_TRANS_ENCODE_CHUNK, STRLEN(HTTP_TRANS_ENCODE_CHUNK)))
+			if(!STRNCASECMP(pLineBuff, HTTP_TRANS_ENCODE_CHUNK, STRLEN(HTTP_TRANS_ENCODE_CHUNK)))
 			{
 				isChunk = TRUE;
-				if(iDBG)GRIB_LOGD("# TRANSFER ENCODING: CHUNKED !!!\n");
+				if(iDBG)GRIB_LOGD("# %s-HTTP: TRANSFER CHUNKED ENCODING !!!\n", httpLogInfo.httpSender);
 				iCount = Grib_RecvChunked(iFD, pMsg->recvBuff+iTotal, HTTP_MAX_SIZE_RECV_MSG-iTotal, GRIB_NOT_USED);
 				iTotal += iCount;
-				if(iDBG)GRIB_LOGD("# REAL DATA RECV DONE [TOTAL: %d]\n", iTotal);
+
+				if(iDBG)
+				{
+					Grib_GetCurrDateTime(dbgTime);
+					GRIB_LOGD("# %s-HTTP: CHUNKED RECV DONE [TIME: %s] [SIZE: %d]\n", httpLogInfo.httpSender, dbgTime, iTotal);
+				}
 				break;
 			}
+
 		}
 	}while(iTotal < HTTP_MAX_SIZE_RECV_MSG);
 
 FINAL:
-	if(iTimeCheck)
-	{//2 shbaek: TIME CHECK
-		sysTimer = time(NULL);
-		sysTime  = localtime(&sysTimer);
-		if(iDBG)GRIB_LOGD("# RECV DONE TIME : %02d:%02d:%02d\n", sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec);
+	if(0 < iFD)
+	{//shbaek: Close Socket File Descriptor
+		close(iFD);
+		iFD = 0;
 	}
-
-	if(0 < iFD)	close(iFD);
+	FREE(pLineBuff);
 
 	if(iError)
-	{
+	{//shbaek: Copy Error Msg ...
 		STRINIT(pMsg->statusMsg, sizeof(pMsg->statusMsg));
 //		STRNCPY(pMsg->statusMsg, httpLogInfo.httpErrMsg, STRLEN(httpLogInfo.httpErrMsg));
 		STRNCPY(pMsg->statusMsg, LINUX_ERROR_STR, STRLEN(LINUX_ERROR_STR));

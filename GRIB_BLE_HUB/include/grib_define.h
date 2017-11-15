@@ -21,9 +21,13 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"1700703_USE_DNS"
+#define GRIB_HUB_VERSION					"1700818_MOD_HTTP_PARSER"
+
+#define GRIB_PLATFORM_SERVER_USE_DNS		TRUE
 #define GRIB_PLATFORM_SERVER_DOMAIN		"si.iotoasis.org"
-#define GRIB_PLATFORM_SERVER_PORT			8080
+
+#define GRIB_SMD_SERVER_USE_DNS			TRUE
+#define GRIB_SMD_SERVER_DOMAIN			"sda.iotoasis.org"
 
 #ifndef FALSE
 #define FALSE								0
@@ -116,6 +120,7 @@ shbaek: Define Constant
 #define GRIB_ONOFF_TO_STR(iValue)						(iValue==ON?"ON":iValue==OFF?"OFF":"INVALID")
 
 //1 shbaek: Device Func Attribute Mask
+#define FUNC_ATTR_USE_NONE							0x0000
 #define FUNC_ATTR_USE_REPORT							0x0001
 #define FUNC_ATTR_USE_CONTROL							0x0002
 #define FUNC_ATTR_USE_ALL								(FUNC_ATTR_USE_CONTROL|FUNC_ATTR_USE_REPORT)
@@ -192,6 +197,10 @@ shbaek: for Readability
 
 #ifndef STRTOK
 #define STRTOK(strSrc, strToken)						strtok((char *)strSrc, (const char *)strToken)
+#endif
+
+#ifndef STRTOK_R
+#define STRTOK_R(strSrc, strToken, pStr)				strtok_r((char *)strSrc, (const char *)strToken, (char **)pStr)
 #endif
 
 #ifndef STRSTR //shbaek: Return Pointer or NULL
@@ -357,7 +366,6 @@ shbaek: Feature
 shbaek: Constance Define - Feature Dependency
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 #define GRIB_DEFAULT_REPORT_CYCLE						30
-
 
 #define GRIB_WAIT_BLE_REUSE_TIME						1
 #define GRIB_CONTROL_FAIL_WAIT_TIME_SEC				1

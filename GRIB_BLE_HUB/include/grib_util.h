@@ -39,6 +39,7 @@ shbaek: Function Prototype
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 int 	Grib_CountChar(char* arr, char c);
 char* 	Grib_Split(char* arr, char c, int n);
+int 	Grib_isNumString(char* strNum);
 int 	Grib_isHexString(char* strNum, int checkSize);
 
 int 	skipSpace(char **str2Buff);
@@ -72,10 +73,7 @@ int Grib_HexToBin(char* hexBuff, char* binBuff, int strSize);
 long Grib_GetStackLimit(void);
 
 int Grib_Base64Encode(char* srcBuff, char* encBuff, int opt);
-int Grib_Base64EncodeBin(char* srcBuff, char* encBuff, int srcSize, int opt);
-
 int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt);
-int Grib_Base64DecodeBin(char* srcBuff, char* decBuff, int srcSize, int opt);
 
 int Grib_ReadTextFile(char* filePath, char* pBuff, int opt);
 int Grib_WriteTextFile(char* filePath, char* pBuff, char* opt);

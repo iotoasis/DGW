@@ -18,41 +18,39 @@ Grib_ConfigInfo gConfigInfo;
 
 void Grib_ShowConfig(Grib_ConfigInfo* pConfigInfo)
 {
-	char* siServerIP = NULL;
 
 	if(pConfigInfo == NULL)
 	{
 		pConfigInfo = &gConfigInfo;
 	}
 
-	//shbaek: Use DNS
-	Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &siServerIP);
-	pConfigInfo->siServerPort = GRIB_PLATFORM_SERVER_PORT;
-
 	GRIB_LOGD("\n");
 	GRIB_LOGD(GRIB_1LINE_SHARP);
 
 	GRIB_LOGD("# HUB_ID              : %s\n", pConfigInfo->hubID);
 
+#if (GRIB_PLATFORM_SERVER_USE_DNS==TRUE)
 	GRIB_LOGD("# SI_SERVER_DOMAIN    : %s\n", GRIB_PLATFORM_SERVER_DOMAIN);
-	GRIB_LOGD("# SI_SERVER_IP        : %s\n", siServerIP);	
+#endif
+	GRIB_LOGD("# SI_SERVER_IP        : %s\n", pConfigInfo->siServerIP);	
 	GRIB_LOGD("# SI_SERVER_PORT      : %d\n", pConfigInfo->siServerPort);
 	GRIB_LOGD("# SI_IN_NAME          : %s\n", pConfigInfo->siInName);
 	GRIB_LOGD("# SI_CSE_NAME         : %s\n", pConfigInfo->siCseName);
 
-	GRIB_LOGD("# AUTH_SERVER_IP      : %s\n", pConfigInfo->authServerIP);
-	GRIB_LOGD("# AUTH_SERVER_PORT    : %d\n", pConfigInfo->authServerPort);
+//	GRIB_LOGD("# AUTH_SERVER_IP      : %s\n", pConfigInfo->authServerIP);
+//	GRIB_LOGD("# AUTH_SERVER_PORT    : %d\n", pConfigInfo->authServerPort);
+#if (GRIB_SMD_SERVER_USE_DNS==TRUE)
+	GRIB_LOGD("# SMD_SERVER_DOMAIN   : %s\n", GRIB_SMD_SERVER_DOMAIN);
+#endif
 	GRIB_LOGD("# SMD_SERVER_IP       : %s\n", pConfigInfo->smdServerIP);
 	GRIB_LOGD("# SMD_SERVER_PORT     : %d\n", pConfigInfo->smdServerPort);
 
 	GRIB_LOGD("# RESET_TIME_HOUR     : %d\n", pConfigInfo->resetTimeHour);
-	GRIB_LOGD("# DEBUG_LEVEL         : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->debugLevel));
-	GRIB_LOGD("# TOMBSTONE_LEVEL     : %s\n", GRIB_BOOL_TO_STR(pConfigInfo->tombStone));
+	GRIB_LOGD("# DEBUG_LEVEL         : %d\n", pConfigInfo->debugLevel);
+	GRIB_LOGD("# TOMBSTONE           : %d\n", pConfigInfo->tombStone);
 
 	GRIB_LOGD(GRIB_1LINE_SHARP);
 	GRIB_LOGD("\n");
-
-	FREE(siServerIP);
 
 }
 
@@ -413,6 +411,8 @@ int Grib_GetConfigDB(void)
 	const char* FUNC = "GET-CFG";
 	int iRes = GRIB_ERROR;
 	int iDBG = FALSE;
+	char* siServerIP = NULL;
+	char* smdServerIP = NULL;
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 	MYSQL_ROW   sqlRow = NULL;
@@ -464,17 +464,32 @@ int Grib_GetConfigDB(void)
 		MEMSET(pConfigInfo, 0x00, sizeof(Grib_ConfigInfo));
 
 		STRNCPY(pConfigInfo->hubID, sqlRow[INDEX_CONFIG_HUB_ID], STRLEN(sqlRow[INDEX_CONFIG_HUB_ID]));
+
+#if (GRIB_PLATFORM_SERVER_USE_DNS==TRUE)
+		Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &siServerIP);
+		STRINIT(pConfigInfo->siServerIP, sizeof(pConfigInfo->siServerIP));
+		STRNCPY(pConfigInfo->siServerIP, siServerIP, STRLEN(siServerIP));
+		FREE(siServerIP);
+#else
 		STRNCPY(pConfigInfo->siServerIP, sqlRow[INDEX_CONFIG_SI_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_SI_SERVER_IP]));
+#endif
 		pConfigInfo->siServerPort = ATOI(sqlRow[INDEX_CONFIG_SI_SERVER_PORT]);
-		
+
+#if (GRIB_SMD_SERVER_USE_DNS==TRUE)
+		Grib_GetDnsIP(GRIB_SMD_SERVER_DOMAIN, &smdServerIP);
+		STRINIT(pConfigInfo->smdServerIP, sizeof(pConfigInfo->smdServerIP));
+		STRNCPY(pConfigInfo->smdServerIP, smdServerIP, STRLEN(smdServerIP));
+		FREE(smdServerIP);
+#else
+		STRNCPY(pConfigInfo->smdServerIP, sqlRow[INDEX_CONFIG_SMD_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_SMD_SERVER_IP]));
+#endif
+		pConfigInfo->smdServerPort = ATOI(sqlRow[INDEX_CONFIG_SMD_SERVER_PORT]);
+
 		STRNCPY(pConfigInfo->siInName, sqlRow[INDEX_CONFIG_SI_IN_ADDR], STRLEN(sqlRow[INDEX_CONFIG_SI_IN_ADDR]));
 		STRNCPY(pConfigInfo->siCseName, sqlRow[INDEX_CONFIG_SI_CSE_ADDR], STRLEN(sqlRow[INDEX_CONFIG_SI_CSE_ADDR]));
 
 		STRNCPY(pConfigInfo->authServerIP, sqlRow[INDEX_CONFIG_AUTH_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_AUTH_SERVER_IP]));
 		pConfigInfo->authServerPort = ATOI(sqlRow[INDEX_CONFIG_AUTH_SERVER_PORT]);
-
-		STRNCPY(pConfigInfo->smdServerIP, sqlRow[INDEX_CONFIG_SMD_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_SMD_SERVER_IP]));
-		pConfigInfo->smdServerPort = ATOI(sqlRow[INDEX_CONFIG_SMD_SERVER_PORT]);
 
 		pConfigInfo->resetTimeHour = ATOI(sqlRow[INDEX_CONFIG_RESET_HOUR]);
 		pConfigInfo->debugLevel    = ATOI(sqlRow[INDEX_CONFIG_DEBUG_LEVEL]);
@@ -589,6 +604,41 @@ int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 	//2 shbaek: UPDATE
 	STRINIT(sqlValue, sizeof(sqlValue));
 	SPRINTF(sqlValue, COLUMN_SI_SERVER_IP "=\"%s\", " COLUMN_SI_SERVER_PORT "=%d, " COLUMN_SI_IN_ADDR "=\"%s\", " COLUMN_SI_CSE_ADDR "=\"%s\" ",
+				pConfigInfo->siServerIP, pConfigInfo->siServerPort, pConfigInfo->siInName, pConfigInfo->siCseName);
+
+	STRINIT(sqlQuery, sizeof(sqlQuery));
+	SPRINTF(sqlQuery, QUERY_UPDATE_CONFIG, sqlValue);
+
+	iRes = Grib_DbQuery(&gConfigSQL, sqlQuery);
+	if(iRes!=GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: QUERY FAIL: %s [%d]\n", FUNC, gConfigSQL.errStr, gConfigSQL.errNum);
+		return GRIB_ERROR;
+	}
+
+	return iRes;
+}
+
+int Grib_SetConfigSmd(Grib_ConfigInfo* pConfigInfo)
+{
+	const char* FUNC = "SET-SMD";
+
+	int i = 0;
+	int iCount = 0;
+	int iRes = GRIB_ERROR;
+
+	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
+	char sqlValue[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
+
+	if(pConfigInfo == NULL)
+	{
+		GRIB_LOGD("# %s: PARAM NULL ERROR !!!\n", FUNC);
+		return GRIB_ERROR;
+	}
+
+	//2 shbaek: UPDATE
+	STRINIT(sqlValue, sizeof(sqlValue));
+	SPRINTF(sqlValue, COLUMN_SMD_SERVER_IP "=\"%s\", " COLUMN_SMD_SERVER_PORT "=%d",
 				pConfigInfo->siServerIP, pConfigInfo->siServerPort, pConfigInfo->siInName, pConfigInfo->siCseName);
 
 	STRINIT(sqlQuery, sizeof(sqlQuery));

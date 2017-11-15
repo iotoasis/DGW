@@ -7,6 +7,8 @@ shbaek: Include File
 
 #include <mysql.h>
 #include <my_global.h>
+#include <mysqld_error.h>
+
 #include "grib_define.h"
 #include "grib_util.h"
 #include "grib_log.h"
@@ -68,7 +70,7 @@ shbaek: Include File
 #define QUERY_SELECT_DEVICE_INFO				"SELECT * FROM " TABLE_DEVICE_INFO " WHERE " COLUMN_DEVICE_ID "=\"%s\""
 #define QUERY_SELECT_DEVICE_INFO_ALL			"SELECT * FROM " TABLE_DEVICE_INFO
 #define QUERY_DELETE_DEVICE_INFO				"DELETE FROM " 	 TABLE_DEVICE_INFO " WHERE " COLUMN_DEVICE_ID "=\"%s\""
-
+#define QUERY_DELETE_DEVICE_INFO_ALL			"DELETE FROM " 	 TABLE_DEVICE_INFO
 
 //2 shbaek: FUNCTION TABLE ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 
@@ -93,6 +95,7 @@ shbaek: Include File
 #define QUERY_INSERT_DEVICE_FUNC				"INSERT INTO "   TABLE_DEVICE_FUNC " VALUES(\"%s\", \"%s\", %d)"
 #define QUERY_SELECT_DEVICE_FUNC				"SELECT * FROM " TABLE_DEVICE_FUNC " WHERE " COLUMN_DEVICE_ID "=\"%s\""
 #define QUERY_DELETE_DEVICE_FUNC				"DELETE FROM "	 TABLE_DEVICE_FUNC " WHERE " COLUMN_DEVICE_ID "=\"%s\""
+#define QUERY_DELETE_DEVICE_FUNC_ALL			"DELETE FROM "	 TABLE_DEVICE_FUNC
 
 //2 shbaek: CONFIG TABLE ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 
@@ -146,7 +149,6 @@ shbaek: Include File
 #define QUERY_UPDATE_CONFIG					"UPDATE " TABLE_CONFIG " SET %s"
 #define QUERY_SELECT_CONFIG					"SELECT * FROM " TABLE_CONFIG
 #define QUERY_DELETE_CONFIG					"DELETE FROM " TABLE_CONFIG
-
 
 //2 shbaek: CACHE RI TABLE ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 
@@ -209,9 +211,6 @@ shbaek: Include File
 #define QUERY_SELECT_SCAN_DEVICE_ALL			"SELECT * FROM " TABLE_BLE_SCAN
 #define QUERY_DELETE_SCAN_DEVICE				"DELETE FROM "	 TABLE_BLE_SCAN " WHERE " COLUMN_SCAN_ADDR "=\"%s\""
 #define QUERY_DELETE_SCAN_DEVICE_ALL			"DELETE FROM "	 TABLE_BLE_SCAN
-
-
-
 
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
 //shbaek: Type Define
@@ -283,6 +282,7 @@ int Grib_DbInfoLoad(void);
 int Grib_FreeSqlInfo(Grib_SqlInfo* pSQL);
 int Grib_MakeSqlInfo(Grib_SqlInfo* pSQL);
 int Grib_ShowSqlInfo(Grib_SqlInfo* pSQL);
+int Grib_ShowCacheRi(Grib_DbRowCacheRi* pRowCacheRi);
 
 
 int Grib_DbCreate(void);
@@ -319,7 +319,6 @@ int Grib_DbSetCacheRi(Grib_DbRowCacheRi* pRowCacheRi);
 int Grib_DbDelCacheRi(char* rid);
 int Grib_DbDelCacheRiAll(void);
 
-
-int Grib_TestDB(int argc, char **argv);
+int Grib_DbDelDeviceAll(void);
 
 #endif

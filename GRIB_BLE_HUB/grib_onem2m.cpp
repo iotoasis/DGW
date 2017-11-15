@@ -37,17 +37,10 @@ int Grib_SiSetServerConfig(void)
 	if(gSiInName==NULL) gSiInName = STRDUP(pConfigInfo->siInName);
 	if(gSiCseName==NULL) gSiCseName = STRDUP(pConfigInfo->siCseName);
 
-#ifdef __NOT_USED__
 	if(gSiServerIp==NULL) gSiServerIp = STRDUP(pConfigInfo->siServerIP);
 	gSiServerPort = pConfigInfo->siServerPort;
-#endif
 
-	if(gSiServerIp==NULL)
-	{//shbaek: Use DNS ...
-		Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &gSiServerIp);
-		gSiServerPort = GRIB_PLATFORM_SERVER_PORT;
-	}
-	gDebugOneM2M = pConfigInfo->debugLevel;
+	gDebugOneM2M = 0<pConfigInfo->debugLevel?TRUE:FALSE;
 //	gDebugOneM2M = TRUE; //shbaek: TEST DEBUG
 
 	Grib_HttpSetDebug(gDebugOneM2M, pConfigInfo->tombStone);
@@ -68,6 +61,7 @@ int Grib_OneM2MResParser(OneM2M_ResParam *pResParam)
 	char* strToken		= NULL;
 	char* str1Line		= NULL;
 	char* strTemp		= NULL;
+	char* strSave		= NULL;
 
 	char* strKey		= NULL;
 	char* strValue		= NULL;
@@ -96,11 +90,11 @@ int Grib_OneM2MResParser(OneM2M_ResParam *pResParam)
 		//shbaek: Cut 1 Line
 		if(i==0)
 		{
-			str1Line = STRTOK(strResponse, strToken);
+			str1Line = STRTOK_R(strResponse, strToken, &strSave);
 		}
 		else
 		{
-			str1Line = STRTOK(NULL, strToken);
+			str1Line = STRTOK_R(NULL, strToken, &strSave);
 		}
 
 		i++;
@@ -168,8 +162,10 @@ FINAL:
 
 int Grib_OneM2MSendMsg(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 {
+	const int iDBG = FALSE;
+
 	int iRes = GRIB_ERROR;
-	Grib_HttpMsgInfo httpMsg;
+	Grib_HttpMsgInfo* pHttpMsg = NULL;
 
 	//shbaek: Check Server Info
 	if( STRLEN(gSiServerIp)==0 || (gSiServerPort==0) )
@@ -177,55 +173,65 @@ int Grib_OneM2MSendMsg(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		Grib_SiSetServerConfig();
 	}
 
-	MEMSET(&httpMsg, 0x00, sizeof(Grib_HttpMsgInfo));
-	MEMSET(pResParam, 0x00, sizeof(OneM2M_ResParam));
+	pHttpMsg = (Grib_HttpMsgInfo*)MALLOC(sizeof(Grib_HttpMsgInfo));
+	MEMSET(pHttpMsg, 0x00, sizeof(Grib_HttpMsgInfo));
 
+	pHttpMsg->serverIP = gSiServerIp;
+	pHttpMsg->serverPort = gSiServerPort;
 
-	httpMsg.serverIP = gSiServerIp;
-	httpMsg.serverPort = gSiServerPort;
-
-	httpMsg.LABEL	 = pReqParam->xM2M_AeName;
-	httpMsg.recvBuff = pResParam->http_RecvData;
+	pHttpMsg->LABEL	 = pReqParam->xM2M_AeName;
+	pHttpMsg->recvBuff = pResParam->http_RecvData;
 
 	if(pReqParam->xM2M_ResourceType == ONEM2M_RESOURCE_TYPE_SEMANTIC_DESCRIPTOR)
 	{//shbaek: Too Large Data ...
-		httpMsg.sendBuff = pReqParam->http_SendDataEx;
-		if(gDebugOneM2M)GRIB_LOGD("# %s-xM2M-MSG: LARGE DATA: %d\n", httpMsg.LABEL, STRLEN(httpMsg.sendBuff));
+		pHttpMsg->sendBuff = pReqParam->http_SendDataEx;
+		if(gDebugOneM2M)GRIB_LOGD("# %s-xM2M: LARGE DATA: %d\n", pHttpMsg->LABEL, STRLEN(pHttpMsg->sendBuff));
 	}
 	else
 	{
-		httpMsg.sendBuff = pReqParam->http_SendData;
+		pHttpMsg->sendBuff = pReqParam->http_SendData;
 	}
 
-	iRes = Grib_HttpSendMsg(&httpMsg);
-	if(iRes <= 0)
-	{
-		STRINIT(pResParam->http_ResMsg, sizeof(pResParam->http_ResMsg));
-		STRNCPY(pResParam->http_ResMsg, httpMsg.statusMsg, STRLEN(httpMsg.statusMsg));
+	do{
+		iRes = Grib_HttpSendMsg(pHttpMsg);
+		if(iRes <= 0)
+		{
+			STRINIT(pResParam->http_ResMsg, sizeof(pResParam->http_ResMsg));
+			STRNCPY(pResParam->http_ResMsg, pHttpMsg->statusMsg, STRLEN(pHttpMsg->statusMsg));
 
-		pResParam->http_ResNum = httpMsg.statusCode;
+			pResParam->http_ResNum = pHttpMsg->statusCode;
 
-		return GRIB_ERROR;
-	}
+			goto ERROR;
+		}
+	}while(FALSE);
 
-	iRes = Grib_HttpResParser(&httpMsg);
+	iRes = Grib_HttpResParser(pHttpMsg);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# %s-xM2M-MSG: MSG PARSE ERROR !!!\n", httpMsg.LABEL);
-		return iRes;
+		GRIB_LOGD("# %s-xM2M: MSG PARSE ERROR !!!\n", pHttpMsg->LABEL);
+		pResParam->http_ResNum = HTTP_STATUS_CODE_UNKNOWN;
+		goto ERROR;
 	}
 
-	pResParam->http_ResNum = httpMsg.statusCode;
+	pResParam->http_ResNum = pHttpMsg->statusCode;
 
 	STRINIT(pResParam->http_ResMsg, STRLEN(pResParam->http_ResMsg));
-	STRNCPY(pResParam->http_ResMsg, httpMsg.statusMsg, STRLEN(httpMsg.statusMsg));
+	STRNCPY(pResParam->http_ResMsg, pHttpMsg->statusMsg, STRLEN(pHttpMsg->statusMsg));
 
-	if( (HTTP_STATUS_CODE_SUCCESS_BASE<=httpMsg.statusCode) && (httpMsg.statusCode<=HTTP_STATUS_CODE_SUCCESS_MAX) )
+	if( (HTTP_STATUS_CODE_SUCCESS_BASE<=pHttpMsg->statusCode) && (pHttpMsg->statusCode<=HTTP_STATUS_CODE_SUCCESS_MAX) )
 	{//shbaek: SUCCESS CASE
+		FREE(pHttpMsg);
 		return GRIB_DONE;
 	}
 
-	if(gDebugOneM2M)GRIB_LOGD("# %s-xM2M-MSG: %s [%d]\n", httpMsg.LABEL, httpMsg.statusMsg, httpMsg.statusCode);
+ERROR:
+	if(gDebugOneM2M)
+	{
+		//GRIB_LOGD("# %s-xM2M: %s [%d]\n", pHttpMsg->LABEL, pHttpMsg->statusMsg, pHttpMsg->statusCode);
+		GRIB_LOGD("# %s-xM2M: RECV BUFF[%d]:\n%s\n", pHttpMsg->LABEL, STRLEN(pHttpMsg->recvBuff), pHttpMsg->recvBuff);
+	}
+	FREE(pHttpMsg);
+
 	return GRIB_ERROR;
 }
 
@@ -343,7 +349,7 @@ int Grib_CmdRequestParser(OneM2M_ResParam* pResParam)
 
 	char* srcBuff = NULL;
 	char* oriBuff = NULL;
-	char  decBuff[SIZE_1K] = {'\0', };
+	char* decBuff = NULL;
 
 	if(pResParam == NULL)
 	{
@@ -351,13 +357,16 @@ int Grib_CmdRequestParser(OneM2M_ResParam* pResParam)
 		return GRIB_ERROR;
 	}
 
-	if(gDebugOneM2M)
+	if(iDBG)
 	{
 		GRIB_LOGD(GRIB_1LINE_DASH);
 		GRIB_LOGD("# %s: CON TYPE : %s\n", FUNC, pResParam->xM2M_ContentInfo);
 		GRIB_LOGD("# %s: CON VALUE: \n%s\n", FUNC, pResParam->xM2M_Content);
 		GRIB_LOGD(GRIB_1LINE_DASH);
 	}
+
+	decBuff = (char*)MALLOC(sizeof(pResParam->xM2M_Content));
+	MEMSET(decBuff, 0x00, sizeof(pResParam->xM2M_Content));
 
 	if(STRSTR(pResParam->xM2M_ContentInfo, ":0") != NULL)
 	{//shbaek: Plain
@@ -374,6 +383,7 @@ int Grib_CmdRequestParser(OneM2M_ResParam* pResParam)
 	}
 	else
 	{//shbaek: Not Support
+		GRIB_LOGD("# %s: NOT SUPPORTED TYPE [%d]: \n%s\n", FUNC, STRLEN(pResParam->http_RecvData), pResParam->http_RecvData);
 		return GRIB_ERROR;
 	}
 
@@ -452,6 +462,7 @@ int Grib_CmdRequestParser(OneM2M_ResParam* pResParam)
 	}
 
 	FREE(oriBuff);
+	FREE(decBuff);
 
 	return iRes;
 }
@@ -477,15 +488,14 @@ int Grib_CmdResponseCreate(OneM2M_ReqParam* pReqParam, OneM2M_ResParam* pResPara
 	}
 
 	SNPRINTF(CMD_RES_BUFF, sizeof(CMD_RES_BUFF), CMD_RES_FORMAT, pResParam->cmdReq_ExecID, cmdResData);
-	if(iDBG)Grib_InfoLog(FUNC, CMD_RES_BUFF);
+	if(iDBG)GRIB_LOGD("# %s-xCMD: SRC: %s\n", pReqParam->xM2M_AeName, CMD_RES_BUFF);
 
 	STRINIT(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF));
 	SPRINTF(pReqParam->xM2M_CNF, "%s:%d", HTTP_CONTENT_TYPE_JSON, HTTP_ENC_TYPE_BASE64);
-	if(iDBG)Grib_InfoLog(FUNC, pReqParam->xM2M_CNF);
 
 	STRINIT(pReqParam->xM2M_CON, sizeof(pReqParam->xM2M_CON));
 	Grib_Base64Encode(CMD_RES_BUFF, pReqParam->xM2M_CON, GRIB_NOT_USED);
-	if(iDBG)Grib_InfoLog(FUNC, pReqParam->xM2M_CON);
+	if(iDBG)GRIB_LOGD("# %s-xCMD: ENC: %s\n", pReqParam->xM2M_AeName, pReqParam->xM2M_CON);
 
 	return iRes;
 }
@@ -524,10 +534,14 @@ int Grib_AppEntityCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	STRNCPY(pReqParam->xM2M_AeName, pReqParam->xM2M_NM, STRLEN(pReqParam->xM2M_NM));
 	pReqParam->xM2M_AeName[STRLEN(pReqParam->xM2M_NM)+1] = NULL;
 
+	STRINIT(AUTO_LABEL, sizeof(AUTO_LABEL));
 	if(STRLEN(pReqParam->xM2M_AttrLBL) <= 1)
 	{
-		STRINIT(AUTO_LABEL, sizeof(AUTO_LABEL));
 		SNPRINTF(AUTO_LABEL, sizeof(AUTO_LABEL), "%s_AppEntityLabel", pReqParam->xM2M_AeName);
+	}
+	else
+	{
+		STRNCPY(AUTO_LABEL, pReqParam->xM2M_AttrLBL, sizeof(AUTO_LABEL));
 	}
 
 	SNPRINTF(xM2M_AttrAPN, sizeof(xM2M_AttrAPN), "%s_AppName",	  pReqParam->xM2M_AeName);
@@ -1217,11 +1231,16 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 		SNPRINTF(pReqParam->xM2M_CNF, sizeof(pReqParam->xM2M_CNF), "%s:%d", HTTP_CONTENT_TYPE_TEXT, HTTP_ENC_TYPE_NONE);
 	}
 
+	STRINIT(AUTO_LABEL, sizeof(AUTO_LABEL));
 	if(STRLEN(pReqParam->xM2M_AttrLBL) <= 1)
 	{
-		STRINIT(AUTO_LABEL, sizeof(AUTO_LABEL));
 		SNPRINTF(AUTO_LABEL, sizeof(AUTO_LABEL), "%s_ContentInstanceLabel", pReqParam->xM2M_AeName);
 	}
+	else
+	{
+		STRNCPY(AUTO_LABEL, pReqParam->xM2M_AttrLBL, sizeof(AUTO_LABEL));
+	}
+	//if(iDBG)GRIB_LOGD("# %s-xM2M: LABEL: %s [%d]\n", pReqParam->xM2M_AeName, AUTO_LABEL, STRLEN(AUTO_LABEL));
 
 	Grib_GetAttrExpireTime(xM2M_AttrET, GRIB_NOT_USED);
 
@@ -1273,7 +1292,7 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 		return GRIB_ERROR;
 	}
 
-	if(iDBG)
+	if(FALSE)
 	{
 		GRIB_LOGD("# RESOURCE ID: [%s]\n", pResParam->xM2M_RsrcID);
 		GRIB_LOGD("# PARENTS  ID: [%s]\n", pResParam->xM2M_PrntID);
@@ -1363,6 +1382,7 @@ int Grib_LongPollingResParser(OneM2M_ResParam *pResParam)
 	char* strToken		= NULL;
 	char* str1Line		= NULL;
 	char* strTemp		= NULL;
+	char* strSave		= NULL;
 
 	char* strTagStart	= NULL;
 	char* strTagEnd	= NULL;
@@ -1389,11 +1409,13 @@ int Grib_LongPollingResParser(OneM2M_ResParam *pResParam)
 		//shbaek: Cut 1 Line
 		if(i==0)
 		{
-			str1Line = STRTOK(strResponse, strToken);
+//			str1Line = STRTOK(strResponse, strToken);
+			str1Line = STRTOK_R(strResponse, strToken, &strSave);
 		}
 		else
 		{
-			str1Line = STRTOK(NULL, strToken);
+//			str1Line = STRTOK(NULL, strToken);
+			str1Line = STRTOK_R(NULL, strToken, &strSave);
 		}
 
 		i++;
@@ -1564,12 +1586,12 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 {
 	int iRes = GRIB_ERROR;
 	int iDBG = gDebugOneM2M;
-	char httpHead[HTTP_MAX_SIZE_HEAD] = {'\0',};
+//	char httpHead[HTTP_MAX_SIZE_HEAD] = {'\0',};
+	char* httpHead = NULL;
+	int   sizeHead = 0;
 
-#ifdef FEATURE_CAS
 	char  pAuthBase64Src[GRIB_MAX_SIZE_MIDDLE] = {'\0',};
 	char  pAuthBase64Enc[GRIB_MAX_SIZE_MIDDLE] = {'\0',};
-#endif
 
 	STRINIT(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID));
 	SNPRINTF(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID), "%s_ReqLongPolling", pReqParam->xM2M_AeName);
@@ -1593,8 +1615,16 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		GRIB_LOGD("# LONG POLLING BASE64 ENC: %s\n", pAuthBase64Enc);
 	}
 #endif
+	sizeHead = 	STRLEN(ONEM2M_HEAD_FORMAT_LONG_POLLING)+STRLEN(gSiInName)+STRLEN(gSiCseName)+
+				STRLEN(pReqParam->xM2M_URI)+STRLEN(gSiServerIp)+4+
+				STRLEN(pAuthBase64Enc)+
+				STRLEN(pReqParam->xM2M_Origin)+STRLEN(pReqParam->xM2M_ReqID);
+	if(iDBG)GRIB_LOGD("# %s-xM2M: LONG POLLING HEAD SIZE: %d\n", pReqParam->xM2M_AeName, sizeHead);
 
-	SNPRINTF(httpHead, sizeof(httpHead), ONEM2M_HEAD_FORMAT_LONG_POLLING, gSiInName, gSiCseName,
+	httpHead = (char*) MALLOC(sizeHead);
+	MEMSET(httpHead, NULL, sizeHead);
+
+	SNPRINTF(httpHead, sizeHead, ONEM2M_HEAD_FORMAT_LONG_POLLING, gSiInName, gSiCseName,
 				pReqParam->xM2M_URI, gSiServerIp, gSiServerPort, 
 #ifdef FEATURE_CAS
 				pAuthBase64Enc,
@@ -1602,7 +1632,8 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 				pReqParam->xM2M_Origin, pReqParam->xM2M_ReqID);
 
 	STRINIT(pReqParam->http_SendData, sizeof(pReqParam->http_SendData));
-	SNPRINTF(pReqParam->http_SendData, sizeof(pReqParam->http_SendData), "%s", httpHead);
+	STRNCPY(pReqParam->http_SendData, httpHead, STRLEN(httpHead));
+//	SNPRINTF(pReqParam->http_SendData, sizeof(pReqParam->http_SendData), "%s", httpHead);
 
 	if(iDBG)
 	{
@@ -1616,11 +1647,11 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	{
 		if(pResParam->http_ResNum != HTTP_STATUS_CODE_REQUEST_TIME_OUT)
 		{
-			GRIB_LOGD("# %s-xM2M: %c[1;31mLONG POLLING FAIL: %s [%d]%c[0m\n", pReqParam->xM2M_AeName, 
+			GRIB_LOGD("# %s-xM2M: %c[1;31mLONG POLLING FAIL: %s[%d]%c[0m\n", pReqParam->xM2M_AeName, 
 				27, pResParam->http_ResMsg, pResParam->http_ResNum, 27);
 		}
 
-		return GRIB_ERROR;
+		goto FINAL;
 	}
 
 	if(iDBG)
@@ -1634,7 +1665,7 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# %s-xM2M: RESPONSE PARSING ERROR\n", pReqParam->xM2M_AeName);
-		return GRIB_ERROR;
+		goto FINAL;
 	}
 
 	//shbaek: Add Command Result.
@@ -1642,7 +1673,7 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 	if(iRes != GRIB_DONE)
 	{
 		GRIB_LOGD("# %s-xM2M: CMD REQUEST PARSING ERROR\n", pReqParam->xM2M_AeName);
-		return GRIB_ERROR;
+		goto FINAL;
 	}	
 
 	if(iDBG)
@@ -1652,7 +1683,9 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 		GRIB_LOGD("# CONTENT    : [%s]\n", pResParam->xM2M_Content);
 	}
 
-	return GRIB_SUCCESS;
+FINAL:
+	FREE(httpHead);
+	return iRes;
 }
 
 #define __ONEM2M_SEMANTIC_FUNC__

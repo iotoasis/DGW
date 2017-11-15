@@ -198,6 +198,31 @@ int Grib_ShowSqlInfo(Grib_SqlInfo* pSQL)
 
 }
 
+int Grib_ShowCacheRi(Grib_DbRowCacheRi* pRowCacheRi)
+{
+	const char* FUNC_TAG = "SHOW-CACHE";
+
+	if(pRowCacheRi == NULL)
+	{
+		GRIB_LOGD("# %s: PARAM IS NULL ERROR !!!\n", FUNC_TAG);
+		return GRIB_ERROR;
+	}
+
+	GRIB_LOGD("\n");
+	GRIB_LOGD(GRIB_1LINE_SHARP);
+	GRIB_LOGD("# CACHE URI       : %s\n", pRowCacheRi->uri);
+	GRIB_LOGD("# CACHE NAME      : %s\n", pRowCacheRi->rname);
+	GRIB_LOGD("# CACHE TYPE      : %d\n", pRowCacheRi->rtype);
+	GRIB_LOGD("# CACHE RID       : %s\n", pRowCacheRi->rid);
+	GRIB_LOGD("# CACHE PID       : %s\n", pRowCacheRi->pid);
+	GRIB_LOGD(GRIB_1LINE_SHARP);
+	GRIB_LOGD("\n");
+
+	return GRIB_DONE;
+
+}
+
+
 int Grib_FreeSqlInfo(Grib_SqlInfo* pSQL)
 {
 	const char* FUNC_TAG = "FREE-SQL";
@@ -440,7 +465,8 @@ int Grib_DbOpen(void)
 
 int Grib_DbCreate(void)
 {
-	const int iDBG = FALSE;
+	const char* FUNC = "DB-CREATE";
+	const int   iDBG = FALSE;
 
 	int iRes = GRIB_ERROR;
 
@@ -467,8 +493,16 @@ int Grib_DbCreate(void)
 	iRes = mysql_query(gSqlConnect, QUERY_DB_CREATE);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE DB FAIL: %s[%d]\n", LOG_TAG_DB, 
-			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_DB_CREATE_EXISTS)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST DB ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE DB FAIL: %s[%d]\n", LOG_TAG_DB, 
+				MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
 //		return GRIB_ERROR;
 	}
 	if(iDBG)GRIB_LOGD("%s CREATE DB DONE\n", LOG_TAG_DB);
@@ -483,12 +517,21 @@ int Grib_DbCreate(void)
 	}
 	if(iDBG)GRIB_LOGD("%s USE DB DONE\n", LOG_TAG_DB);
 
+
 	//shbaek: Create Device Info Table
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_DEVICE_INFO);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE DEVICE TABLE FAIL: %s[%d]\n", LOG_TAG_DB, 
-			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_TABLE_EXISTS_ERROR)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST DEVICE TABLE ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE DEVICE TABLE FAIL: %s[%d]\n", LOG_TAG_DB, 
+				MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
 //		return GRIB_ERROR;
 	}
 	if(iDBG)GRIB_LOGD("%s CREATE DEVICE TABLE DONE\n", LOG_TAG_DB);
@@ -497,8 +540,16 @@ int Grib_DbCreate(void)
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_DEVICE_FUNC);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE FUNC TABLE FAIL: %s[%d]\n", LOG_TAG_DB, 
-			MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_TABLE_EXISTS_ERROR)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST FUNC TABLE ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE FUNC TABLE FAIL: %s[%d]\n", LOG_TAG_DB, 
+				MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
 //		return GRIB_ERROR;
 	}
 	if(iDBG)GRIB_LOGD("%s CREATE FUNC TABLE DONE\n", LOG_TAG_DB);
@@ -507,7 +558,15 @@ int Grib_DbCreate(void)
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_CONFIG);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE CONFIG TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_TABLE_EXISTS_ERROR)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST CONFIG TABLE ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE CONFIG TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
 //		return GRIB_ERROR;
 	}
 	if(iDBG)GRIB_LOGD("%s CREATE CONFIG TABLE DONE\n", LOG_TAG_DB);
@@ -516,7 +575,16 @@ int Grib_DbCreate(void)
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_CACHE_RI);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE CACHE TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_TABLE_EXISTS_ERROR)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST CACHE TABLE ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE CACHE TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
+
 //		return GRIB_ERROR;
 	}
 	if(iDBG)GRIB_LOGD("%s CREATE CACHE TABLE DONE\n", LOG_TAG_DB);
@@ -525,10 +593,19 @@ int Grib_DbCreate(void)
 	iRes = mysql_query(gSqlConnect, QUERY_CREATE_SCAN_DEVICE);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CREATE SCAN TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		if(MYSQL_ERROR_NUM(gSqlConnect) == ER_TABLE_EXISTS_ERROR)
+		{
+			iRes = GRIB_DONE;
+			GRIB_LOGD("# %s: ALREADY EXIST BLE SCAN TABLE ...\n", FUNC);
+		}
+		else
+		{
+			GRIB_LOGD("%s CREATE BLE SCAN TABLE FAIL: %s[%d]\n", LOG_TAG_DB, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect));
+		}
+
 //		return GRIB_ERROR;
 	}
-	if(iDBG)GRIB_LOGD("%s CREATE SCAN TABLE DONE\n", LOG_TAG_DB);
+	if(iDBG)GRIB_LOGD("%s CREATE BLE SCAN TABLE DONE\n", LOG_TAG_DB);
 
 	return iRes;
 }
@@ -1087,8 +1164,51 @@ int Grib_DbToMemory(Grib_DbAll *pDbAll)
 	return iRes;
 }
 
+int Grib_DbDelDeviceAll(void)
+{
+	const char* FUNC = "DEL-ALL_DEVICE";
 
+	int iRes = GRIB_ERROR;
+	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 
+	if(gSqlConnect == NULL)
+	{
+		iRes = Grib_DbOpen();
+		if(iRes == GRIB_ERROR)
+		{
+			Grib_DbClose();
+			return GRIB_ERROR;
+		}
+	}
+
+	STRINIT(sqlQuery, sizeof(sqlQuery));
+	STRNCPY(sqlQuery, QUERY_DELETE_DEVICE_FUNC_ALL, STRLEN(QUERY_DELETE_DEVICE_FUNC_ALL));
+	Grib_DebugLog(FUNC, sqlQuery);
+
+	iRes = mysql_query(gSqlConnect, sqlQuery);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: %c[1;31m%s[%d]%c[0m\n", FUNC, 
+			27, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect), 27);
+		return GRIB_ERROR;
+	}
+
+	STRINIT(sqlQuery, sizeof(sqlQuery));
+	STRNCPY(sqlQuery, QUERY_DELETE_DEVICE_INFO_ALL, STRLEN(QUERY_DELETE_DEVICE_INFO_ALL));
+	Grib_DebugLog(FUNC, sqlQuery);
+
+	iRes = mysql_query(gSqlConnect, sqlQuery);
+	if(iRes != GRIB_DONE)
+	{
+		GRIB_LOGD("# %s: %c[1;31m%s[%d]%c[0m\n", FUNC, 
+			27, MYSQL_ERROR_STR(gSqlConnect), MYSQL_ERROR_NUM(gSqlConnect), 27);
+		return GRIB_ERROR;
+	}
+
+	Grib_InfoLog(FUNC, "SQL QUERY DONE ...");
+	
+	return iRes;
+}
 
 #define __GRIB_DB_CACHE_RI__
 
@@ -1183,7 +1303,7 @@ FINAL:
 int Grib_DbGetCacheInfo(Grib_DbRowCacheRi* pRowCacheRi)
 {
 	int iRes = GRIB_ERROR;
-	int iDBG = TRUE;
+	int iDBG = FALSE;
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 
 	if(iDBG)GRIB_LOGD("%s GET CACHE RI\n", LOG_TAG_DB);

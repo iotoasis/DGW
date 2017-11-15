@@ -49,10 +49,9 @@ shbaek: Define Fixed Data
 #define ONEM2M_FIX_ATTR_ET_TIME							"122359"
 
 #define ONEM2M_FIX_ATTR_ET								"20991231T235959"
-//#define ONEM2M_FIX_ATTR_MNI								INT_MAX
-#define ONEM2M_FIX_ATTR_MNI								1000000ULL
-#define ONEM2M_FIX_ATTR_MBS								1024000ULL
-#define ONEM2M_FIX_ATTR_MIA								3600000ULL
+#define ONEM2M_FIX_ATTR_MNI								100
+#define ONEM2M_FIX_ATTR_MBS								1024000
+#define ONEM2M_FIX_ATTR_MIA								36000
 #define ONEM2M_FIX_ATTR_RR								"FALSE"
 
 #define ONEM2M_FIX_ATTR_ENC								"\"net\":[1,2,3,4]"

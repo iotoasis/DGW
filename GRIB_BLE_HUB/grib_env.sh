@@ -137,3 +137,19 @@ function kill_grib_porc()
 
 	echo -e
 }
+
+function chmod_all()
+{
+
+	echo -e "# ########## ########## ########## ########## ########## ########## ########## ##########"
+	echo -e "# ${COLOR_YELLOW_BOLD}" CHANGE DIRECTORY PERMISSION "${COLOR_END}"
+	echo -e "# ########## ########## ########## ########## ########## ########## ########## ##########"
+	echo -e
+	sleep 1
+	find ./ -type d -exec chmod -v 755 {} \;
+
+	find ./ -iname '*.c' -exec chmod -v 666 {} \;
+	find ./ -iname '*.h' -exec chmod -v 666 {} \;
+	find ./ -iname '*.cpp' -exec chmod -v 666 {} \;
+	find ./ -iname '*.sh' -exec chmod -v 755 {} \;
+}

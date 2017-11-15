@@ -105,9 +105,13 @@ int Grib_MenuRebootConfig(void)
 		sysTimer = time(NULL);
 		sysTime  = localtime(&sysTimer);
 
-		if(sysTime->tm_sec <= 10)
+		if(sysTime->tm_sec == 0)
 		{//shbaek: Show Yourself ...
-			GRIB_LOGD("# %s: %c[1;33m%02d:%02d:%02d -> [CONFIG HOUR: %d]%c[0m\n", FUNC, 27, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec, intervalTime, 27);
+			GRIB_LOGD("\n");
+			GRIB_LOGD(GRIB_1LINE_SHARP);
+			GRIB_LOGD("# REBOOT-PROCESS: %c[1;33m%02d:%02d:%02d [CONFIG HOUR: %d]%c[0m\n", 27, sysTime->tm_hour, sysTime->tm_min, sysTime->tm_sec, intervalTime, 27);
+			GRIB_LOGD(GRIB_1LINE_SHARP);
+			GRIB_LOGD("\n");
 		}
 
 		if( (sysTime->tm_min==0) && (sysTime->tm_hour%intervalTime==0) )
@@ -115,7 +119,7 @@ int Grib_MenuRebootConfig(void)
 			break;
 		}
 
-		SLEEP(10);
+		SLEEP(1);
 	}
 
 #if 1 //shbaek: Do You Wnat Kill Hub?

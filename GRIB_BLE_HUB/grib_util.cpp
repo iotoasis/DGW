@@ -307,104 +307,6 @@ int Grib_Base64Encode(char* srcBuff, char* encBuff, int opt)
 
 }
 
-int Grib_Base64EncodeBin(char* srcBuff, char* encBuff, int srcSize, int opt)
-{
-	int i = 0;
-	int iRes = GRIB_ERROR;
-	int encSize = 0;
-
-	char* pSrc = NULL;
-	char  unit = '\0';
-
-	if( (srcBuff==NULL) || (encBuff==NULL) )
-	{
-		GRIB_LOGD("# BASE64 ENC: PARAM NULL ERROR !!!\n");
-		return GRIB_ERROR;		
-	}
-
-	while( BASE64_ENC_SRC_BYTE <= (srcSize-encSize) )
-	{
-		pSrc = srcBuff + encSize;
-		unit = '\0';
-
-		//shbaek: 1st Unit Encode
-		unit = (pSrc[0] >> 2) & BIT_MASK_6;
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 2nd Unit Encode
-		unit = ((pSrc[0] & BIT_MASK_2) << 4) + ((pSrc[1] >> 4) & BIT_MASK_4);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 3rd Unit Encode
-		unit = ((pSrc[1] & BIT_MASK_4) << 2) + ((pSrc[2] >> 6) & BIT_MASK_2);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-		
-		//shbaek: 4th Unit Encode
-		unit = (pSrc[2] & BIT_MASK_6);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		encSize += BASE64_ENC_SRC_BYTE;
-	}
-
-	if( (srcSize%BASE64_ENC_SRC_BYTE) == 2 )
-	{
-		pSrc = srcBuff + encSize;
-		unit = '\0';
-
-		//shbaek: 1st Unit Encode
-		unit = (pSrc[0] >> 2) & BIT_MASK_6;
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 2nd Unit Encode
-		unit = ((pSrc[0] & BIT_MASK_2) << 4) + ((pSrc[1] >> 4) & BIT_MASK_4);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 3rd Unit Partial Encode
-		unit = ((pSrc[1] & BIT_MASK_4) << 2);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 4th Unit Pad
-		encBuff[i] = BASE64_PAD;
-		i++;
-	}
-
-	if( (srcSize%BASE64_ENC_SRC_BYTE) == 1 )
-	{
-		pSrc = srcBuff + encSize;
-		unit = '\0';
-
-		//shbaek: 1st Unit Encode
-		unit = (pSrc[0] >> 2) & BIT_MASK_6;
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 2nd Unit Partial Encode
-		unit = ((pSrc[0] & BIT_MASK_2) << 4);
-		encBuff[i] = BASE64TABLE[unit];
-		i++;
-
-		//shbaek: 4th Unit Pad
-		encBuff[i] = BASE64_PAD;
-		i++;
-
-		//shbaek: 4th Unit Pad
-		encBuff[i] = BASE64_PAD;
-		i++;
-	}
-
-	encBuff[i] = '\0';
-
-	return GRIB_DONE;
-
-}
-
 int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt)
 {
 	int i = 0;
@@ -426,60 +328,6 @@ int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt)
 	}
 
 	srcSize = STRLEN(srcBuff);
-	if(srcSize % BASE64_DEC_SRC_BYTE != 0)
-	{//shbaek: In-Valid Base64 Data Size
-		GRIB_LOGD("# BASE64 DEC: INVALID SOURCE SIZE !!!\n");
-		return GRIB_ERROR;
-	}
-
-	while( BASE64_DEC_SRC_BYTE <= (srcSize-decSize) )
-	{
-		pSrc = srcBuff + decSize;
-
-		unit1 = Grib_GetBase64Value(pSrc[0]);
-		unit2 = Grib_GetBase64Value(pSrc[1]);
-		unit3 = Grib_GetBase64Value(pSrc[2]);
-		unit4 = Grib_GetBase64Value(pSrc[3]);
-
-		//shbaek: 1st Data Decode
-		decBuff[i] = (unit1 << 2) + (unit2 >> 4);
-		i++;
-
-		//shbaek: 2nd Data Decode
-		decBuff[i] = (unit2 << 4) + (unit3 >> 2);
-		i++;
-
-		//shbaek: 3rd Data Decode
-		decBuff[i] = (unit3 << 6) + unit4;
-		i++;
-
-		decSize += BASE64_DEC_SRC_BYTE;
-	}
-
-	decBuff[i] = '\0';
-
-	return GRIB_DONE;
-}
-
-int Grib_Base64DecodeBin(char* srcBuff, char* decBuff, int srcSize, int opt)
-{
-	int i = 0;
-	int iRes = GRIB_ERROR;
-	int decSize = 0;
-
-	int unit1 = 0;
-	int unit2 = 0;
-	int unit3 = 0;
-	int unit4 = 0;
-
-	char* pSrc = NULL;
-
-	if( (srcBuff==NULL) || (decBuff==NULL) )
-	{
-		GRIB_LOGD("# BASE64 DEC: PARAM NULL ERROR !!!\n");
-		return GRIB_ERROR;		
-	}
-
 	if(srcSize % BASE64_DEC_SRC_BYTE != 0)
 	{//shbaek: In-Valid Base64 Data Size
 		GRIB_LOGD("# BASE64 DEC: INVALID SOURCE SIZE !!!\n");
@@ -715,6 +563,8 @@ int Grib_GetHostName(char* pBuff)
 int Grib_GetDnsIP(char* domain, char** ip)
 {
 	const char* FUNC = "GET-DNS_IP";
+	const int	iDBG = FALSE;
+
 	int iRes = GRIB_ERROR;
 	int i = 0;
 
@@ -740,11 +590,10 @@ int Grib_GetDnsIP(char* domain, char** ip)
 		if(0<STRLEN(ipAddr))
 		{
 			*ip = STRDUP(ipAddr);
-			GRIB_LOGD("# %s: HOST[%02d] NAME:%s ADDR:%s\n", FUNC, i, pHost->h_name, *ip);
+			if(iDBG)GRIB_LOGD("# %s: HOST[%02d] [NAME:%s] [ADDR:%s]\n", FUNC, i, pHost->h_name, *ip);
 			break;
 		}
 	}
-	GRIB_LOGD("\n");
 
 	return iRes;
 }
@@ -953,7 +802,7 @@ const char* Grib_ThreadStatusToStr(int iStatus)
 	{
 		case THREAD_STATUS_NONE:				return "NONE";
 		case THREAD_STATUS_POLLING:				return "POLLING";
-		case THREAD_STATUS_USE_BLE:				return "COMMAND";
+		case THREAD_STATUS_USE_BLE:				return "USE_BLE";
 		case THREAD_STATUS_NEED_ANSWER:			return "ANSWER";
 		default:								return "NOT_DEFINE";
     }
@@ -1043,7 +892,7 @@ int Grib_HexToBin(char* hexBuff, char* binBuff, int strSize)
 		binBuff[(i/2)] = strtol(strBin, GRIB_NOT_USED, 16);		
 	}
 
-	return i;
+	return i/2;
 }
 
 long Grib_GetStackLimit(void)

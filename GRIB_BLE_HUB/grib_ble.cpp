@@ -39,13 +39,36 @@ int Grib_BleConfig(void)
 		return GRIB_ERROR;
 	}
 
-	gDebugBle  = pConfigInfo->debugLevel;
+	gDebugBle  = pConfigInfo->debugLevel<2?FALSE:TRUE;
 	gBleTombStone = pConfigInfo->tombStone;
 
 	if(gDebugBle)GRIB_LOGD("# BLE CONFIG DEBUG LOG: %d\n", gDebugBle);
 	if(gDebugBle)GRIB_LOGD("# BLE CONFIG TOMBSTONE: %d\n", gBleTombStone);
 
 	return GRIB_SUCCESS;
+}
+
+void Grib_BlePrintRaw(const char* LABEL, char** argValue)
+{
+	int i = 0;
+	int argCount = 0;
+
+	if(argValue == NULL)return;
+
+	while(argValue[i]!=NULL)
+	{
+		i++;
+		argCount++;
+	}
+
+	GRIB_LOGD("# %s:", LABEL);
+	for(i=0; i<argCount; i++)
+	{
+		GRIB_LOGD(" %s", argValue[i]);
+	}
+	GRIB_LOGD("\n");
+
+	return;
 }
 
 void Grib_BleTombStone(Grib_BleLogInfo* pLogInfo)
@@ -522,17 +545,8 @@ int Grib_BleSendRaw(Grib_BleMsgInfo* pBleMsg)
 			//3 shbaek: Jump to Gatttool
 			if(iDBG)GRIB_LOGD("# %s-SEND: JUMP BLE EXTEND\n", pipeFileName);
 
-			if(pBleMsg->peerType==BLE_PEER_TYPE_RANDOM)
-			{
-/*
-				iRes = execl(BLE_FILE_PATH_GATTTOOL_EX, BLE_FILE_PATH_GATTTOOL_EX, optPeerType, optDevice,
-					optCommand, optHandle, optValue, optResponse, optDebug, NULL);
-*/
-				iRes = execv(BLE_FILE_PATH_GATTTOOL_EX, argValue);
-			}
-			else
-			{
-			}
+			if(iDBG)Grib_BlePrintRaw(pipeFileName, argValue);
+			iRes = execv(BLE_FILE_PATH_GATTTOOL_EX, argValue);
 
 			if(iDBG)Grib_ErrLog(pipeFileName, "DO YOU SEE ME???\n");
 			exit(iRes);
@@ -625,8 +639,8 @@ int Grib_BleSendRaw(Grib_BleMsgInfo* pBleMsg)
 
 	if(STRNCASECMP(recvBuff, BLE_RESPONSE_STR_ERROR, STRLEN(BLE_RESPONSE_STR_ERROR)) == 0)
 	{
-		Grib_BleErrorCode iError = (Grib_BleErrorCode) ATOI(&STRCHR(recvBuff, GRIB_COLON)[1]);
-		const char* pError = Grib_BleErrorToStr(iError);
+		Grib_BleErrorCode errorCode = (Grib_BleErrorCode) ATOI(&STRCHR(recvBuff, GRIB_COLON)[1]);
+		const char* errorMsg = Grib_BleErrorToStr(errorCode);
 
 		Grib_BleLogInfo bleLogInfo;
 		MEMSET(&bleLogInfo, 0x00, sizeof(Grib_BleLogInfo));
@@ -635,13 +649,15 @@ int Grib_BleSendRaw(Grib_BleMsgInfo* pBleMsg)
 		bleLogInfo.bleAddr		= deviceAddr;
 		bleLogInfo.bleSendMsg	= sendBuff;
 		bleLogInfo.bleRecvMsg	= recvBuff;
-		bleLogInfo.bleErrorMsg	= pError;
+		bleLogInfo.bleErrorMsg	= errorMsg;
+
+		if(iDBG)GRIB_LOGD("# %s-BLE<: ERROR CATCHING ...\n", pipeFileName);
 
 		Grib_BleTombStone(&bleLogInfo);
 
-		pBleMsg->eCode = iError;
+		pBleMsg->eCode = errorCode;
 
-		if(iError == BLE_ERROR_CODE_CRITICAL)
+		if(errorCode == BLE_ERROR_CODE_CRITICAL)
 		{//3 shbaek: HCI DRIVER RESET
 			Grib_BleDetourInit();
 		}
@@ -953,18 +969,54 @@ int Grib_BleGetReportCycle(char* deviceAddr, char* deviceID, char* recvBuff)
 int Grib_BleGetFuncData(char* deviceAddr, char* deviceID, char* funcName, char* recvBuff)
 {
 	int   iRes = GRIB_ERROR;
-	char  sendBuff[BLE_MAX_SIZE_SEND_MSG+1] = {'\0', };
-	char* pipeFileName = deviceID;
+	int   nameSize = 0;
 
-	STRINIT(sendBuff, sizeof(sendBuff));
-	SNPRINTF(sendBuff, sizeof(sendBuff), BLE_CMD_GET_FUNC_DATA, funcName);
+	char* sendBuff = NULL;
+	char* pipeName = NULL;
 
-	iRes = Grib_BleSendMsg(deviceAddr, pipeFileName, sendBuff, recvBuff);
+	sendBuff = (char*)MALLOC(BLE_MAX_SIZE_SEND_MSG);
+	STRINIT(sendBuff, BLE_MAX_SIZE_SEND_MSG);
+	SNPRINTF(sendBuff, BLE_MAX_SIZE_SEND_MSG, BLE_CMD_GET_FUNC_DATA, funcName);
+
+	nameSize = STRLEN(deviceID) + STRLEN(BLE_CMD_GET_PIPE_SUFFIX) + 1;
+	pipeName = (char*)MALLOC(nameSize);
+	STRINIT(pipeName, nameSize);
+	SNPRINTF(pipeName, nameSize, "%s%s", deviceID, BLE_CMD_GET_PIPE_SUFFIX);
+
+	iRes = Grib_BleSendMsg(deviceAddr, pipeName, sendBuff, recvBuff);
+
+	FREE(pipeName);
+	FREE(sendBuff);
 
 	return iRes;
 }
 
 int Grib_BleSetFuncData(char* deviceAddr, char* deviceID, char* funcName, char* content, char* recvBuff)
+{
+	int   iRes = GRIB_ERROR;
+	int   nameSize = 0;
+
+	char* sendBuff = NULL;
+	char* pipeName = NULL;
+
+	sendBuff = (char*)MALLOC(BLE_MAX_SIZE_RECV_MSG);
+	STRINIT(sendBuff, BLE_MAX_SIZE_RECV_MSG);
+	SNPRINTF(sendBuff, BLE_MAX_SIZE_RECV_MSG, BLE_CMD_SET_FUNC_DATA, funcName, content);
+
+	nameSize = STRLEN(deviceID) + STRLEN(BLE_CMD_SET_PIPE_SUFFIX) + 1;
+	pipeName = (char*)MALLOC(nameSize);
+	STRINIT(pipeName, nameSize);
+	SNPRINTF(pipeName, nameSize, "%s%s", deviceID, BLE_CMD_SET_PIPE_SUFFIX);
+
+	iRes = Grib_BleSendMsg(deviceAddr, pipeName, sendBuff, recvBuff);
+
+	FREE(pipeName);
+	FREE(sendBuff);
+
+	return iRes;
+}
+
+int Grib_BleSetFuncData_Ori(char* deviceAddr, char* deviceID, char* funcName, char* content, char* recvBuff)
 {
 	int   iRes = GRIB_ERROR;
 	char  sendBuff[BLE_MAX_SIZE_SEND_MSG+1] = {'\0', };

@@ -56,6 +56,9 @@ shbaek: Include File
 
 #define BLE_FILE_NAME_PIPE_TEMP							"TEMP_PIPE_FILE"
 
+#define BLE_CMD_GET_PIPE_SUFFIX							"_GET"
+#define BLE_CMD_SET_PIPE_SUFFIX							"_SET"
+
 #define BLE_CMD_GET_DEVICE_ID								"GET+DEVID?"
 #define BLE_CMD_SET_DEVICE_ID								"SET+DEVID=%s"
 #define BLE_CMD_GET_DEVICE_IF								"GET+DEVIF?"
@@ -159,7 +162,6 @@ int Grib_BleDetourInit(void);
 int Grib_BleCleanAll(void);
 int Grib_BleGetDeviceInfo(Grib_DbRowDeviceInfo* pRowDeviceInfo);
 
-int Grib_BleSendReq(Grib_BleMsgInfo* pBleMsg);
 int Grib_BleGetCharHandler(Grib_BleMsgInfo* pBleMsg);
 
 #endif

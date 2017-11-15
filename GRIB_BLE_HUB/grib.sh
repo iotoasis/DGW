@@ -19,7 +19,11 @@ fi
 if [ "make" == "$1" ] ; then
 
 	if [ "all" == "$2" ] ; then
+		echo -e "${COLOR_YELLOW_BOLD}"# KILL PROCESSING ..."${COLOR_END}"
+		kill_grib_porc
+		echo -e "${COLOR_YELLOW_BOLD}"# MAKE CLEAN ..."${COLOR_END}"
 		make clean
+		echo -e "${COLOR_YELLOW_BOLD}"# MAKE ALL ..."${COLOR_END}"
 		make all
 	elif [ "hci" == "$2" ] ; then
 		make hci_clean
@@ -50,6 +54,11 @@ if [ "kill" == "$1" ] ; then
 	exit
 fi
 
+if [ "chmod" == "$1" ] ; then
+	chmod_all
+	exit
+fi
+
 # ########## ########## ########## ########## ########## ########## ########## ##########
 # shbaek: ONLY HCI
 # ########## ########## ########## ########## ########## ########## ########## ##########
@@ -76,6 +85,15 @@ if [ "ble" == "$1" ] ; then
 		echo -e
 		exit
 	fi
+fi
+
+# ########## ########## ########## ########## ########## ########## ########## ##########
+# shbaek: ONLY EMULATOR
+# ########## ########## ########## ########## ########## ########## ########## ##########
+if [ "emulator" == "$1" ] ; then
+	./${GRIB_EMUL_NAME} "$2" "$3" "$4"
+	echo -e
+	exit
 fi
 
 # ########## ########## ########## ########## ########## ########## ########## ##########
@@ -125,4 +143,3 @@ fi
 ./${GRIB_BLE_HUB_NAME} "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
 echo -e
 exit
-
