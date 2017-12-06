@@ -30,6 +30,8 @@ int Grib_AuthSetServerConfig(void)
 
 	gAuthServerPort = pConfigInfo->authServerPort;
 
+	gDebugAuth = pConfigInfo->debugLevel;
+
 	GRIB_LOGD("# AUTH SERVER CONFIG: %s:%d\n", gAuthServerIp, gAuthServerPort);
 
 	return GRIB_SUCCESS;
@@ -378,7 +380,6 @@ int Grib_AuthDeviceDeRegi(char* deviceID)
 
 int Grib_AuthGetPW(char* deviceID, char* devicePW)
 {
-	int  i = 0;
 	int  iRes = GRIB_ERROR;
 	int  iDBG = gDebugAuth;
 

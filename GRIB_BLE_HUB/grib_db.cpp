@@ -226,7 +226,6 @@ int Grib_ShowCacheRi(Grib_DbRowCacheRi* pRowCacheRi)
 int Grib_FreeSqlInfo(Grib_SqlInfo* pSQL)
 {
 	const char* FUNC_TAG = "FREE-SQL";
-	int iDBG = TRUE;
 	int iRes = GRIB_DONE;
 
 	if(pSQL == NULL)
@@ -262,7 +261,6 @@ int Grib_FreeSqlInfo(Grib_SqlInfo* pSQL)
 int Grib_MakeSqlInfo(Grib_SqlInfo* pSQL)
 {
 	const char* FUNC_TAG = "MAKE-SQL";
-	int iDBG = TRUE;
 	int iRes = GRIB_DONE;
 
 	if(pSQL == NULL)
@@ -637,7 +635,6 @@ int Grib_DbDrop(void)
 
 	return iRes;
 }
-
 
 #define __GRIB_DB_DEVICE_INFO__
 
@@ -1251,7 +1248,6 @@ int Grib_DbSetCacheRi(Grib_DbRowCacheRi* pRowCacheRi)
 //2 shbaek: Need RI
 int Grib_DbGetCacheCount(void)
 {
-	int i = 0;
 	int iRes = GRIB_ERROR;
 	int iDBG = TRUE;
 	int iRowCount = 0;

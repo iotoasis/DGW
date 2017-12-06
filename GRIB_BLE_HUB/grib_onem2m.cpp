@@ -24,7 +24,6 @@ OneM2M_ResParam gResParam;
 
 int Grib_SiSetServerConfig(void)
 {
-	int iRes = GRIB_ERROR;
 	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	pConfigInfo = Grib_GetConfigInfo();
@@ -54,7 +53,6 @@ int Grib_SiSetServerConfig(void)
 int Grib_OneM2MResParser(OneM2M_ResParam *pResParam)
 {
 	int i = 0;
-	int iRes = GRIB_ERROR;
 	int iLoopMax = 128;
 	int iDBG = FALSE;
 
@@ -239,17 +237,11 @@ int Grib_GetAttrExpireTime(char* attrBuff, TimeInfo* pTime)
 {
 	const char* EXPIRE_TIME_STR_FORMAT = GRIB_STR_TIME_FORMAT;
 
-	time_t sysTimer;
-	TimeInfo *sysTime;
-
 	if(attrBuff == NULL)
 	{
 		GRIB_LOGD("# PARAM IS NULL ERROR !!!\n");
 		return GRIB_ERROR;
 	}
-
-	sysTimer = time(NULL);
-	sysTime  = localtime(&sysTimer);
 
 	STRINIT(attrBuff, ONEM2M_EXPIRE_TIME_STR_SIZE);
 
@@ -259,9 +251,34 @@ int Grib_GetAttrExpireTime(char* attrBuff, TimeInfo* pTime)
 	}
 	else
 	{
+		time_t curTimeSec = (time_t)0;
+		time_t addTimeSec = (time_t)0;
+		time_t exTimeSec  = (time_t)0;
+		TimeInfo exTimeInfo;
+
+		curTimeSec = time(NULL);
+
+		addTimeSec += pTime->tm_year * GRIB_SEC_YEAR;
+		addTimeSec += pTime->tm_mon  * GRIB_SEC_MON;
+		addTimeSec += pTime->tm_mday * GRIB_SEC_DAY;
+		addTimeSec += pTime->tm_hour * GRIB_SEC_HOUR;
+		addTimeSec += pTime->tm_min  * GRIB_SEC_MIN;
+		addTimeSec += pTime->tm_sec;
+
+		exTimeSec = curTimeSec + addTimeSec;
+
+		MEMSET(&exTimeInfo, 0x00, sizeof(exTimeInfo));
+		localtime_r(&exTimeSec, &exTimeInfo);
+
 		SNPRINTF(attrBuff, ONEM2M_EXPIRE_TIME_STR_SIZE, EXPIRE_TIME_STR_FORMAT, 
-					sysTime->tm_year+1900+pTime->tm_year, sysTime->tm_mon+1+pTime->tm_mon, sysTime->tm_mday+pTime->tm_mday,
-					sysTime->tm_hour+pTime->tm_hour, sysTime->tm_min+pTime->tm_min, sysTime->tm_sec+pTime->tm_sec);
+					exTimeInfo.tm_year+1900, exTimeInfo.tm_mon+1, exTimeInfo.tm_mday,
+					exTimeInfo.tm_hour, exTimeInfo.tm_min, exTimeInfo.tm_sec);
+	}
+
+	if(gDebugOneM2M)
+	{
+		Grib_ShowCurrDateTime();
+		GRIB_LOGD("# EXPIRE  TIME: %c[1;33m%s%c[0m\n", 27, attrBuff, 27);
 	}
 
 	return GRIB_DONE;
@@ -273,9 +290,7 @@ int Grib_isAvailableExpireTime(char* xM2M_ExpireTime)
 	time_t sysTimer;
 
 	TimeInfo *sysTime;
-	TimeInfo *expireTime;
 	
-	int isAvailable = FALSE;
 	int iSeek = 0;
 	char timeBuff[5] = {'\0', };
 
@@ -290,14 +305,14 @@ int Grib_isAvailableExpireTime(char* xM2M_ExpireTime)
 	sysTime  = localtime(&sysTimer);
 
 	if(gDebugOneM2M)GRIB_LOGD("# EXPIRE TIME: %s\n", xM2M_ExpireTime);
-	
+
 	//shbaek: YYYY
 	STRINIT(timeBuff, sizeof(timeBuff));
 	for(i=0; i<4; i++)timeBuff[i] = xM2M_ExpireTime[i];
 	if((sysTime->tm_year+1900) < ATOI(timeBuff))return TRUE;
 	else if(ATOI(timeBuff) < (sysTime->tm_year+1900))return FALSE;
 	else iSeek = i;
-	
+
 	//shbaek: MM
 	STRINIT(timeBuff, sizeof(timeBuff));
 	for(i=0; i<2; i++)timeBuff[i] = xM2M_ExpireTime[iSeek+i];
@@ -1240,9 +1255,12 @@ int Grib_ContentInstanceCreate(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pRes
 	{
 		STRNCPY(AUTO_LABEL, pReqParam->xM2M_AttrLBL, sizeof(AUTO_LABEL));
 	}
-	//if(iDBG)GRIB_LOGD("# %s-xM2M: LABEL: %s [%d]\n", pReqParam->xM2M_AeName, AUTO_LABEL, STRLEN(AUTO_LABEL));
 
-	Grib_GetAttrExpireTime(xM2M_AttrET, GRIB_NOT_USED);
+	//shbaek: Add for Instance Expire Time(=1 Day) by Herit.
+	MEMSET(&pTime, 0x00, sizeof(TimeInfo));
+	pTime.tm_mday = 1;
+
+	Grib_GetAttrExpireTime(xM2M_AttrET, &pTime);
 
 	SNPRINTF(httpBody, sizeof(httpBody), ONEM2M_BODY_FORMAT_CONTENT_INSTANCE_CREATE,
 				AUTO_LABEL, xM2M_AttrET, pReqParam->xM2M_CNF, pReqParam->xM2M_CON);
@@ -1375,7 +1393,6 @@ int Grib_ContentInstanceRetrieve(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pR
 int Grib_LongPollingResParser(OneM2M_ResParam *pResParam)
 {
 	int i = 0;
-	int iRes = GRIB_ERROR;
 	int iLoopMax = 128;
 	int iDBG = FALSE;
 
@@ -1584,14 +1601,15 @@ FINAL:
 //2 shbaek: NEED: xM2M_Origin, [xM2M_URI: If NULL, Auto Set]
 int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 {
-	int iRes = GRIB_ERROR;
-	int iDBG = gDebugOneM2M;
-//	char httpHead[HTTP_MAX_SIZE_HEAD] = {'\0',};
+	int   iRes = GRIB_ERROR;
+	int   iDBG = gDebugOneM2M;
 	char* httpHead = NULL;
 	int   sizeHead = 0;
 
+#ifdef FEATURE_CAS
 	char  pAuthBase64Src[GRIB_MAX_SIZE_MIDDLE] = {'\0',};
 	char  pAuthBase64Enc[GRIB_MAX_SIZE_MIDDLE] = {'\0',};
+#endif
 
 	STRINIT(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID));
 	SNPRINTF(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID), "%s_ReqLongPolling", pReqParam->xM2M_AeName);
@@ -1617,7 +1635,9 @@ int Grib_LongPolling(OneM2M_ReqParam *pReqParam, OneM2M_ResParam *pResParam)
 #endif
 	sizeHead = 	STRLEN(ONEM2M_HEAD_FORMAT_LONG_POLLING)+STRLEN(gSiInName)+STRLEN(gSiCseName)+
 				STRLEN(pReqParam->xM2M_URI)+STRLEN(gSiServerIp)+4+
+#ifdef FEATURE_CAS
 				STRLEN(pAuthBase64Enc)+
+#endif
 				STRLEN(pReqParam->xM2M_Origin)+STRLEN(pReqParam->xM2M_ReqID);
 	if(iDBG)GRIB_LOGD("# %s-xM2M: LONG POLLING HEAD SIZE: %d\n", pReqParam->xM2M_AeName, sizeHead);
 
@@ -1855,7 +1875,7 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 		return GRIB_ERROR;
 	}
 
-	GRIB_LOGD("# CREATE-TREE: %s\n", pRowDeviceInfo->deviceID);
+	if(iDBG)GRIB_LOGD("# CREATE-TREE: %s\n", pRowDeviceInfo->deviceID);
 
 	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
 	MEMSET(&resParam, GRIB_INIT, sizeof(OneM2M_ResParam));
@@ -1864,18 +1884,6 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 	reqParam.authKey = pAuthKey;
 #endif
 
-/*
-	if(pRowDeviceInfo->deviceInterface == DEVICE_IF_TYPE_INTERNAL)
-	{
-		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		SNPRINTF(&reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", "SYSTEM");
-	}
-	else
-	{
-		STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
-		SNPRINTF(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin), "GRIB/%s", pConfigInfo->hubID);
-	}
-*/
 	STRINIT(reqParam.xM2M_Origin, sizeof(reqParam.xM2M_Origin));
 	STRNCPY(reqParam.xM2M_Origin, pConfigInfo->hubID, STRLEN(pConfigInfo->hubID));
 
@@ -2050,7 +2058,7 @@ int Grib_CreateOneM2MTree(Grib_DbRowDeviceInfo* pRowDeviceInfo, char* pAuthKey)
 
 	if(pRowDeviceInfo->deviceInterface == DEVICE_IF_TYPE_INTERNAL)
 	{//3 shbaek: No Have Semantic Descriptor Type
-		if(gDebugOneM2M)GRIB_LOGD("# %s TREE: NO HAVE SEMANTIC DESCRIPTOR ...\n", pRowDeviceInfo->deviceID);
+		if(iDBG)GRIB_LOGD("# %s TREE: NO HAVE SEMANTIC DESCRIPTOR ...\n", pRowDeviceInfo->deviceID);
 		return GRIB_DONE;
 	}
 

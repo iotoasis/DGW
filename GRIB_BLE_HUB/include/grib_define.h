@@ -21,7 +21,7 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"1700818_MOD_HTTP_PARSER"
+#define GRIB_HUB_VERSION					"1701130_MOD_EXPIRE_TIME"
 
 #define GRIB_PLATFORM_SERVER_USE_DNS		TRUE
 #define GRIB_PLATFORM_SERVER_DOMAIN		"si.iotoasis.org"
@@ -89,6 +89,13 @@ shbaek: Define Constant
 
 #define GRIB_DONE										GRIB_SUCCESS
 #define GRIB_ERROR										GRIB_FAIL
+
+#define GRIB_SEC_MIN									60
+#define GRIB_SEC_HOUR									(GRIB_SEC_MIN*60)
+#define GRIB_SEC_DAY									(GRIB_SEC_HOUR*24)
+#define GRIB_SEC_WEEK									(GRIB_SEC_DAY*7)
+#define GRIB_SEC_MON									(GRIB_SEC_WEEK*4)
+#define GRIB_SEC_YEAR									(GRIB_SEC_DAY*365)
 
 #define GRIB_PROGRAM_REBOOT							"grib_reboot"
 #define GRIB_PROGRAM_HCI								"grib_hci"

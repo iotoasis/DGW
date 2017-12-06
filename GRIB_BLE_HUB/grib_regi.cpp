@@ -81,11 +81,14 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	Grib_DbRowDeviceFunc* pRowDeviceFunc = NULL;
 
 	char pAuthKey[GRIB_MAX_SIZE_AUTH_KEY] = {'\0', };
+
+#ifdef FEATURE_CAS
 	Grib_ConfigInfo* pConfigInfo = NULL;
+#endif
 
 	if(deviceAddr == NULL)
 	{
-		GRIB_LOGD("# DEVICE BLE ADDR IS NULL !!!\n");
+		GRIB_LOGD("# %s: DEVICE BLE ADDR IS NULL !!!\n", FUNC);
 		return GRIB_ERROR;
 	}
 
@@ -98,7 +101,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	iRes = Grib_DbCreate();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# NEED NOT DB CREATE\n");
+		GRIB_LOGD("# %s: NEED NOT DB CREATE\n", FUNC);
 		Grib_DbClose();
 	}
 //	Grib_DbClose();
@@ -107,7 +110,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 	iRes = Grib_BleGetDeviceInfo(&rowDeviceInfo);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# GET BLE DEVICE INFO ERROR\n");
+		GRIB_LOGD("# %s: GET BLE DEVICE INFO ERROR\n", FUNC);
 		goto FINAL;
 	}
 
@@ -118,7 +121,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 		pConfigInfo = Grib_GetConfigInfo();
 		if(pConfigInfo == NULL)
 		{
-			GRIB_LOGD("# GET CONFIG ERROR !!!\n");
+			GRIB_LOGD("# %s: GET CONFIG ERROR !!!\n", FUNC);
 			return GRIB_ERROR;
 		}
 
@@ -126,7 +129,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 		iRes = Grib_CasInit(pConfigInfo->hubID);
 		if(iRes != GRIB_DONE)
 		{
-			GRIB_LOGD("# CAS INIT FAIL !!!\n");
+			GRIB_LOGD("# %s: CAS INIT FAIL !!!\n", FUNC);
 			return GRIB_ERROR;
 		}
 #endif
@@ -136,12 +139,12 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 
 		if(optAuth & REGI_OPT_PW_OVER_WRITE)
 		{
-			GRIB_LOGD("# TRY AUTH REGI ...\n");
+			GRIB_LOGD("# %s: TRY AUTH REGI ...\n", FUNC);
 
 			iRes = Grib_AuthDeviceRegi(rowDeviceInfo.deviceID, GRIB_NOT_USED);
 			if(iRes != GRIB_DONE)
 			{
-				GRIB_LOGD("# AUTH REGI FAIL ...\n");
+				GRIB_LOGD("# %s: AUTH REGI FAIL ...\n", FUNC);
 			}
 		}
 		else if(optAuth & REGI_OPT_PW_RE_USED)
@@ -154,7 +157,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 			iRes = Grib_CasGetAuthKey(rowDeviceInfo.deviceID, pAuthKey);
 		}
 #endif
-		GRIB_LOGD("# DEVICE REGI: %s GET AUTH KEY: %s\n", rowDeviceInfo.deviceID, pAuthKey);
+		GRIB_LOGD("# %s: %s GET AUTH KEY: %s\n", FUNC, rowDeviceInfo.deviceID, pAuthKey);
 
 		if(optAuth & REGI_OPT_CREATE_RESOURCE)
 		{
@@ -162,21 +165,21 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 			iRes = Grib_CreateOneM2MTree(&rowDeviceInfo, pAuthKey);
 			if(iRes != GRIB_DONE)
 			{
-				GRIB_LOGD("# CREATE ONEM2M TREE ERROR\n");
+				GRIB_LOGD("# %s: CREATE ONEM2M TREE ERROR\n", FUNC);
 				goto FINAL;
 			}
 		}
 	}
 	else
 	{
-		GRIB_LOGD("# %c[1;33mDo Not Create OneM2M Tree ...%c[0m\n", 27, 27);
+		GRIB_LOGD("# %s: %c[1;33mDo Not Create OneM2M Tree ...%c[0m\n", FUNC, 27, 27);
 	}
 
 	GRIB_LOGD("# ##### ##### ##### ##### INSERT DEVICE INFO  ##### ##### ##### #####\n");
 	iRes = Grib_DbSetDeviceInfo(&rowDeviceInfo);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("# INSERT ROW DEVICE INFO ERROR\n");
+		GRIB_LOGD("# %s: INSERT ROW DEVICE INFO ERROR\n", FUNC);
 		goto FINAL;
 	}
 
@@ -191,7 +194,7 @@ int Grib_DeviceRegi(char* deviceAddr, int optAuth)
 		iRes = Grib_DbSetDeviceFunc(pRowDeviceFunc);
 		if(iRes != GRIB_DONE)
 		{
-			GRIB_LOGD("# INSERT ROW DEVICE FUNC ERROR\n");
+			GRIB_LOGD("# %s: INSERT ROW DEVICE FUNC ERROR\n", FUNC);
 			goto FINAL;
 		}
 	}

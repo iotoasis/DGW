@@ -66,7 +66,7 @@ int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 	char* pTrim = NULL;
 	char* pValue = NULL;
 
-	if(iDBG)GRIB_LOGD("# LOAD CONFIG FILE START\n");
+	if(iDBG)GRIB_LOGD("# %s: START ...\n", FUNC);
 
 	if(pConfigInfo == NULL)
 	{
@@ -76,7 +76,7 @@ int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 	pConfigFile = fopen(GRIB_DEFAULT_CONFIG_FILE_PATH, "r");
 	if(pConfigFile == NULL)
 	{
-		GRIB_LOGD("# LOAD CONFIG FILE FAIL: %s[%d]\n", LINUX_ERROR_STR, LINUX_ERROR_NUM);
+		GRIB_LOGD("# %s: FILE OPEN FAIL: %s[%d]\n", FUNC, LINUX_ERROR_STR, LINUX_ERROR_NUM);
 		return GRIB_ERROR;
 	}
 
@@ -298,18 +298,15 @@ int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 
 	if(iDBG)Grib_ShowConfig(pConfigInfo);
 
-	if(pTrim != NULL)
-	{
-		FREE(pTrim);
-		pTrim = NULL;
-	}
+	FREE(pTrim);
+
 	if(pConfigFile != NULL)
 	{
 		fclose(pConfigFile);
 		pConfigFile = NULL;
 	}
 
-	if(iDBG)GRIB_LOGD("# LOAD CONFIG FILE DONE\n");
+	if(iDBG)GRIB_LOGD("# %s: DONE ... \n", FUNC);
 
 	return iRes;
 }
@@ -411,8 +408,11 @@ int Grib_GetConfigDB(void)
 	const char* FUNC = "GET-CFG";
 	int iRes = GRIB_ERROR;
 	int iDBG = FALSE;
-	char* siServerIP = NULL;
-	char* smdServerIP = NULL;
+
+#if (GRIB_SMD_SERVER_USE_DNS==TRUE)
+	char* pSiServerIP = NULL;
+	char* pSmdServerIP = NULL;
+#endif
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
 	MYSQL_ROW   sqlRow = NULL;
@@ -466,20 +466,20 @@ int Grib_GetConfigDB(void)
 		STRNCPY(pConfigInfo->hubID, sqlRow[INDEX_CONFIG_HUB_ID], STRLEN(sqlRow[INDEX_CONFIG_HUB_ID]));
 
 #if (GRIB_PLATFORM_SERVER_USE_DNS==TRUE)
-		Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &siServerIP);
+		Grib_GetDnsIP(GRIB_PLATFORM_SERVER_DOMAIN, &pSiServerIP);
 		STRINIT(pConfigInfo->siServerIP, sizeof(pConfigInfo->siServerIP));
-		STRNCPY(pConfigInfo->siServerIP, siServerIP, STRLEN(siServerIP));
-		FREE(siServerIP);
+		STRNCPY(pConfigInfo->siServerIP, pSiServerIP, STRLEN(pSiServerIP));
+		FREE(pSiServerIP);
 #else
 		STRNCPY(pConfigInfo->siServerIP, sqlRow[INDEX_CONFIG_SI_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_SI_SERVER_IP]));
 #endif
 		pConfigInfo->siServerPort = ATOI(sqlRow[INDEX_CONFIG_SI_SERVER_PORT]);
 
 #if (GRIB_SMD_SERVER_USE_DNS==TRUE)
-		Grib_GetDnsIP(GRIB_SMD_SERVER_DOMAIN, &smdServerIP);
+		Grib_GetDnsIP(GRIB_SMD_SERVER_DOMAIN, &pSmdServerIP);
 		STRINIT(pConfigInfo->smdServerIP, sizeof(pConfigInfo->smdServerIP));
-		STRNCPY(pConfigInfo->smdServerIP, smdServerIP, STRLEN(smdServerIP));
-		FREE(smdServerIP);
+		STRNCPY(pConfigInfo->smdServerIP, pSmdServerIP, STRLEN(pSmdServerIP));
+		FREE(pSmdServerIP);
 #else
 		STRNCPY(pConfigInfo->smdServerIP, sqlRow[INDEX_CONFIG_SMD_SERVER_IP], STRLEN(sqlRow[INDEX_CONFIG_SMD_SERVER_IP]));
 #endif
@@ -554,8 +554,6 @@ int Grib_SetConfigHub(Grib_ConfigInfo* pConfigInfo)
 {
 	const char* FUNC = "SET-HUB";
 
-	int i = 0;
-	int iCount = 0;
 	int iRes = GRIB_ERROR;
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
@@ -588,8 +586,6 @@ int Grib_SetConfigSi(Grib_ConfigInfo* pConfigInfo)
 {
 	const char* FUNC = "SET-SI";
 
-	int i = 0;
-	int iCount = 0;
 	int iRes = GRIB_ERROR;
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
@@ -623,8 +619,6 @@ int Grib_SetConfigSmd(Grib_ConfigInfo* pConfigInfo)
 {
 	const char* FUNC = "SET-SMD";
 
-	int i = 0;
-	int iCount = 0;
 	int iRes = GRIB_ERROR;
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };
@@ -658,8 +652,6 @@ int Grib_SetConfigEtc(Grib_ConfigInfo* pConfigInfo)
 {
 	const char* FUNC = "SET-ETC";
 
-	int i = 0;
-	int iCount = 0;
 	int iRes = GRIB_ERROR;
 
 	char sqlQuery[MYSQL_MAX_SIZE_QUERY+1] = {'\0', };

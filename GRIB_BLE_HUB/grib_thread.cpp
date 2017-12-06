@@ -20,7 +20,7 @@ Grib_DeviceThreadInfo** gBleThreadList;
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define	CMD_BLE_RETRY_MAX_COUNT							5
+#define	CMD_BLE_RETRY_MAX_COUNT							10
 #define TEST_USE_ONLY_BLE									FALSE
 #define WAIT_TIME_MSEC										100
 
@@ -289,10 +289,8 @@ int Grib_MakeCacheRi(Grib_DbAll* pDbAll, Grib_DeviceThreadInfo** pDevThreadList)
 void* Grib_WatchDogThread(void* threadArg)
 {
 	const char* FUNC = "WATCH-DOG";
-	int iDBG = TRUE;//gDebugThread;
 	
 	time_t sysTimer;
-	struct tm *sysTime;
 
 	const int  TIME_UNIT = GRIB_DEFAULT_REPORT_CYCLE;
 	const int  TOTAL_WAIT_TIME_SEC = TIME_UNIT * 5;
@@ -408,21 +406,6 @@ void* Grib_WatchDogThread(void* threadArg)
 										27, TOTAL_DEVICE_COUNT, notWorkDeviceCount, bleErrorDeviceCount, 27);
 		SLEEP(CHECK_WAIT_TIME_SEC);
 
-#if __NOT_USED__
-		for(i=1; i<=WATCHDOG_WAIT_TIME_SEC; i++)
-		{
-			sysTimer = time(NULL);
-			sysTime  = localtime(&sysTimer);
-
-			if(i%30 == 0)
-			{
-				GRIB_LOGD("# %s: %c[1;33m CHECK TIME: %d/%d [NOT WORKING: %d] [BLE CONTINUE ERROR: %d]%c[0m\n", FUNC, 
-								27, i, WATCHDOG_WAIT_TIME_SEC, notWorkDeviceCount, bleErrorDeviceCount, 27);
-			}
-			SLEEP(1);
-		}
-#endif
-
 		if(bleErrorDeviceCount == TOTAL_DEVICE_COUNT)
 		{//3 shbaek: All Device Continual Error !!!
 			const char* pCommand	= "./" GRIB_PROGRAM_REBOOT " timer 30 \"Ble Continual Error !!!\"";
@@ -492,7 +475,7 @@ void* Grib_HubThread(void* threadArg)
 
 	if( (gHubID==NULL) || (STRLEN(gHubID)<=1) )
 	{
-		GRIB_LOGD("# %ld HUB ID IS NULL", pthread_self());
+		GRIB_LOGD("# %s: %ld HUB ID IS NULL", FUNC, pthread_self());
 
 		iRes = Grib_SetThreadConfig();
 		if(iRes != GRIB_DONE)
@@ -502,7 +485,7 @@ void* Grib_HubThread(void* threadArg)
 	}
 
 #if (TEST_USE_ONLY_BLE)
-	GRIB_LOGD("# HUB-THREAD: %c[1;33mTEST_USE_ONLY_BLE !!!%c[0m\n", 27, 27);
+	GRIB_LOGD("# %s: %c[1;33mTEST_USE_ONLY_BLE !!!%c[0m\n", FUNC, 27, 27);
 	return threadArg;
 #endif
 
@@ -650,13 +633,9 @@ void* Grib_ReportThread(void* threadArg)
 {
 	int i = 0;
 	int iRes = GRIB_ERROR;
-	int iDBG = gDebugThread;
 	int iCycleTime = 0; //shbaek: Sec
 	int checkStatus = THREAD_STATUS_NONE;
 	int checkCount = 0;
-
-//	OneM2M_ReqParam reqParam;
-//	OneM2M_ResParam resParam;
 
 	OneM2M_ReqParam* pReqParam = NULL;
 	OneM2M_ResParam* pResParam = NULL;
@@ -692,11 +671,6 @@ void* Grib_ReportThread(void* threadArg)
 	{
 		iCycleTime = GRIB_DEFAULT_REPORT_CYCLE;
 	}
-
-//	GRIB_LOGD("# %s-RPT>: REPORT THREAD START\n", deviceID);
-
-//	MEMSET(&reqParam, GRIB_INIT, sizeof(OneM2M_ReqParam));
-//	MEMSET(&resParam, GRIB_INIT, sizeof(OneM2M_ResParam));
 
 	pReqParam = (OneM2M_ReqParam*) MALLOC(sizeof(OneM2M_ReqParam));
 	MEMSET(pReqParam, 0x00, sizeof(OneM2M_ReqParam));
@@ -892,7 +866,6 @@ void* Grib_ControlThread(void* threadArg)
 {
 	const char*	FUNC = "CONTROL-THREAD";
 
-	int 	i = 0;
 	int 	iRes = GRIB_ERROR;
 	int 	iDBG = gDebugThread;
 	int 	iTry = 0;
@@ -962,8 +935,6 @@ void* Grib_ControlThread(void* threadArg)
 
 	while(TRUE)
 	{
-		//GRIB_LOGD("# %s-CTR<: POLLING START\n", deviceID);
-
 		STRINIT(pReqParam->xM2M_ReqID, sizeof(pReqParam->xM2M_ReqID));
 		STRINIT(pReqParam->xM2M_URI, sizeof(pReqParam->xM2M_URI));
 		MEMSET(pResParam, 0x00, sizeof(OneM2M_ResParam));

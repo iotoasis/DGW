@@ -27,8 +27,6 @@ void Grib_SmdSetDebug(int iDebug)
 
 int Grib_SmdSetServerConfig(void)
 {
-	int iRes = GRIB_ERROR;
-
 	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	pConfigInfo = Grib_GetConfigInfo();
@@ -49,7 +47,6 @@ int Grib_SmdSetServerConfig(void)
 int Grib_SmdDeviceInfoParser(char* recvBuff, char* smdBuff)
 {
 	int i = 0;
-	int iRes = GRIB_ERROR;
 	int iLoopMax = SIZE_1K;
 	int iDBG = FALSE;
 

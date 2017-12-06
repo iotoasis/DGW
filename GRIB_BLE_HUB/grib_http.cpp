@@ -229,9 +229,7 @@ int Grib_HttpResParser(Grib_HttpMsgInfo* pMsg)
 {
 	const char* FUNC = "HTTP-PARSER";
 
-	int i = 0;
 	int iRes = GRIB_ERROR;
-	int iLoopMax = 128;
 	int iDBG = gHttpDebug;
 
 	char* strToken		= NULL;
@@ -346,10 +344,10 @@ int Grib_Recv1Line(int iFD, char* lineBuff, int buffSize, int opt)
 	return iCount;
 }
 
+//shbaek: Return Recv Data Size
 int Grib_RecvChunked(int iFD, char* recvBuff, int buffSize, int opt)
 {
 	int iDBG = FALSE;
-	int iRes = GRIB_ERROR;
 	int iCount = 0;
 	int iTotal = 0;
 	int recvSize = 0;
@@ -424,7 +422,6 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 
 	int iFD 	= 0;
 	int iError	= FALSE;
-	int isChunk = FALSE;
 
 	char* pLineBuff = NULL;
 	char  dbgTime[GRIB_MAX_SIZE_TIME_STR] = {'\0', };
@@ -530,7 +527,6 @@ int Grib_HttpSendMsg(Grib_HttpMsgInfo* pMsg)
 
 			if(!STRNCASECMP(pLineBuff, HTTP_TRANS_ENCODE_CHUNK, STRLEN(HTTP_TRANS_ENCODE_CHUNK)))
 			{
-				isChunk = TRUE;
 				if(iDBG)GRIB_LOGD("# %s-HTTP: TRANSFER CHUNKED ENCODING !!!\n", httpLogInfo.httpSender);
 				iCount = Grib_RecvChunked(iFD, pMsg->recvBuff+iTotal, HTTP_MAX_SIZE_RECV_MSG-iTotal, GRIB_NOT_USED);
 				iTotal += iCount;

@@ -13,8 +13,6 @@ shbaek: Include File
 #include "grib_auth.h"
 #include "grib_log.h"
 
-#include "grib_test.h"
-
 #ifdef FEATURE_CAS
 #include "grib_cas.h"
 #endif
@@ -216,13 +214,13 @@ void Grib_MenuConfig(int argc, char **argv)
 void Grib_HubConfig(int mode)
 {
 	int iRes = GRIB_ERROR;
-	const char* FUNC_TAG = "# GRIB-HUB:";
+	const char* FUNC = "# GRIB-HUB:";
 	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	pConfigInfo = Grib_GetConfigInfo();
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC);
 		return;
 	}
 
@@ -230,13 +228,13 @@ void Grib_HubConfig(int mode)
 	iRes = Grib_SetThreadConfig();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC_TAG);
+		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC);
 		return;
 	}
 	iRes = Grib_SiSetServerConfig();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC_TAG);
+		GRIB_LOGD("%s SERVER CONFIG ERROR\n", FUNC);
 		return;
 	}
 
@@ -245,7 +243,7 @@ void Grib_HubConfig(int mode)
 	iRes = Grib_CasInit(pConfigInfo->hubID);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("%s: CAS INIT FAIL !!!\n", FUNC);
 		return;
 	}
 #endif
@@ -255,9 +253,8 @@ void Grib_HubConfig(int mode)
 
 void Grib_MenuHub(int argc, char **argv)
 {
+	const char* FUNC = "# GRIB-HUB:";
 	int iRes = GRIB_ERROR;
-	const char* FUNC_TAG = "# GRIB-HUB:";
-	Grib_ConfigInfo* pConfigInfo = NULL;
 
 	//3 shbaek: MAIN FUNCTION
 	GRIB_LOGD(GRIB_1LINE_SHARP);
@@ -268,7 +265,7 @@ void Grib_MenuHub(int argc, char **argv)
 	iRes = Grib_BleConfig();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s BLE CONFIG ERROR\n", FUNC_TAG);
+		Grib_ErrLog(FUNC, "BLE CONFIG ERROR !!!");
 		return;
 	}
 
@@ -276,13 +273,13 @@ void Grib_MenuHub(int argc, char **argv)
 	iRes = Grib_BleDetourInit();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s BLE INIT FAIL\n", FUNC_TAG);
+		Grib_ErrLog(FUNC, "BLE INIT FAIL !!!");
 	}
 
 	iRes = Grib_BleCleanAll();
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s BLE PIPE CLEAN FAIL\n", FUNC_TAG);
+		Grib_ErrLog(FUNC, "BLE PIPE CLEAN FAIL !!!");
 	}
 
 	Grib_ThreadStart();
@@ -291,9 +288,6 @@ void Grib_MenuHub(int argc, char **argv)
 
 void Grib_MenuRegi(int argc, char **argv)
 {
-	const char* FUNC_TAG = "# GRIB-REGI:";
-
-	int   iRes = GRIB_ERROR;
 	char* deviceAddr = NULL;
 	char* option = NULL;
 	int   optAuth = GRIB_NOT_USED;
@@ -339,11 +333,6 @@ void Grib_MenuRegi(int argc, char **argv)
 
 void Grib_MenuDeRegi(int argc, char **argv)
 {
-	const char* FUNC_TAG = "# GRIB-DeREGI:";
-
-	int   iRes = GRIB_ERROR;
-	Grib_ConfigInfo* pConfigInfo = NULL;
-
 	int   delOneM2M = FALSE;
 	char* deviceID  = NULL;
 	char* option    = NULL;
@@ -491,10 +480,7 @@ void Grib_MenuDb(int argc, char **argv)
 	const char* FUNC = "MENU-DB";
 
 	int   i = 0;
-	int   x = 0;
 	int	  iRes = GRIB_ERROR;
-	int   iDeviceCount = 0;
-	int   iFuncCount = 0;
 	char* subMenu = NULL;
 
 	char* deviceID = NULL;
@@ -563,6 +549,10 @@ LOOP_TEST:
 	}
 	if(STRCASECMP(subMenu, "device") == 0)
 	{
+		int   x = 0;
+		int   iDeviceCount = 0;
+		int   iFuncCount = 0;
+
 		pDbAll = &dbAll;
 		MEMSET(pDbAll, 0x00, sizeof(Grib_DbAll));
 		iRes = Grib_DbToMemory(&dbAll);
@@ -582,12 +572,8 @@ LOOP_TEST:
 			GRIB_LOGD("\n");
 			GRIB_LOGD(GRIB_1LINE_DASH);
 			GRIB_LOGD("# DEVICE ID     : %s\n", pRowDeviceInfo->deviceID);
-//			GRIB_LOGD("# DEVICE IF     : %s\n", Grib_InterfaceToStr((Grib_DeviceIfType)pRowDeviceInfo->deviceInterface));
 			GRIB_LOGD("# DEVICE ADDR   : %s\n", pRowDeviceInfo->deviceAddr);
-//			GRIB_LOGD("# DEVICE LOC    : %s\n", pRowDeviceInfo->deviceLoc);
-//			GRIB_LOGD("# DEVICE DESC   : %s\n", pRowDeviceInfo->deviceDesc);
 			GRIB_LOGD("# REPORT CYCLE  : %d\n", pRowDeviceInfo->reportCycle);
-//			GRIB_LOGD("# DEVICE FCOUNT : %d\n", pRowDeviceInfo->deviceFuncCount);
 
 			for(x=0; x<iFuncCount; x++)
 			{
@@ -640,7 +626,7 @@ LOOP_TEST:
 
 void Grib_MenuXM2M(int argc, char **argv)
 {
-	const char* FUNC_TAG = "# GRIB-xM2M:";
+	const char* FUNC = "# GRIB-xM2M:";
 
 	int 	iRes = GRIB_ERROR;
 
@@ -650,7 +636,6 @@ void Grib_MenuXM2M(int argc, char **argv)
 	char* 	argNM = NULL;
 	char* 	argURI = NULL;
 	char* 	argCON = NULL;
-	char* 	argOrigin = NULL;
 	char*   deviceID = NULL;
 
 	OneM2M_ReqParam reqParam;
@@ -681,7 +666,7 @@ void Grib_MenuXM2M(int argc, char **argv)
 	pConfigInfo = Grib_GetConfigInfo();
 	if(pConfigInfo == NULL)
 	{
-		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC_TAG);
+		GRIB_LOGD("%s GET CONFIG ERROR !!!\n", FUNC);
 		return;
 	}
 
@@ -690,19 +675,19 @@ void Grib_MenuXM2M(int argc, char **argv)
 	iRes = Grib_CasInit(pConfigInfo->hubID);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s CAS INIT FAIL !!!\n", FUNC_TAG);
+		GRIB_LOGD("%s CAS INIT FAIL !!!\n", FUNC);
 		return;
 	}
 
 	iRes = Grib_AuthGetPW(deviceID, pAuthKey);
 	if(iRes != GRIB_DONE)
 	{
-		GRIB_LOGD("%s %s GET AUTH PASSWORD ERROR !!!\n", FUNC_TAG, deviceID);
+		GRIB_LOGD("%s %s GET AUTH PASSWORD ERROR !!!\n", FUNC, deviceID);
 
 		iRes = Grib_CasGetAuthKey(deviceID, pAuthKey);
 		if(iRes != GRIB_DONE)
 		{
-			GRIB_LOGD("%s %s GET AUTH KEY ERROR !!!\n", FUNC_TAG, deviceID);
+			GRIB_LOGD("%s %s GET AUTH KEY ERROR !!!\n", FUNC, deviceID);
 		}
 	}
 
@@ -974,7 +959,7 @@ void Grib_MenuXM2M(int argc, char **argv)
 
 void Grib_MenuAuth(int argc, char **argv)
 {
-	const char* FUNC_TAG = "# GRIB-AUTH:";
+	const char* FUNC = "# GRIB-AUTH:";
 
 	int   iRes = GRIB_ERROR;
 
@@ -1003,7 +988,7 @@ void Grib_MenuAuth(int argc, char **argv)
 			return;
 		}
 		pID = GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("%s GATEWAY ID: %s\n", FUNC_TAG, pID);
+		GRIB_LOGD("%s GATEWAY ID: %s\n", FUNC, pID);
 
 		iRes = Grib_AuthGatewayRegi(pID);
 		if(iRes == GRIB_ERROR)
@@ -1046,7 +1031,7 @@ void Grib_MenuAuth(int argc, char **argv)
 			return;
 		}
 		pID = GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("%s DEVICE ID: %s\n", FUNC_TAG, pID);
+		GRIB_LOGD("%s DEVICE ID: %s\n", FUNC, pID);
 
 		iRes = Grib_AuthDeviceInfo(pID, GRIB_NOT_USED);
 		if(iRes == GRIB_ERROR)
@@ -1064,7 +1049,7 @@ void Grib_MenuAuth(int argc, char **argv)
 			return;
 		}
 		pID = GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("%s DEVICE ID: %s\n", FUNC_TAG, pID);
+		GRIB_LOGD("%s DEVICE ID: %s\n", FUNC, pID);
 
 		iRes = Grib_AuthGetPW(pID, GRIB_NOT_USED);
 		if(iRes == GRIB_ERROR)
@@ -1082,7 +1067,7 @@ void Grib_MenuAuth(int argc, char **argv)
 			return;
 		}
 		pID = GRIB_CMD_ARG1[argv];
-		GRIB_LOGD("%s GATEWAY ID: %s\n", FUNC_TAG, pID);
+		GRIB_LOGD("%s GATEWAY ID: %s\n", FUNC, pID);
 
 		iRes = Grib_AuthDeviceDeRegi(pID);
 		if(iRes == GRIB_ERROR)
@@ -1098,13 +1083,10 @@ void Grib_MenuAuth(int argc, char **argv)
 
 void Grib_MenuTest(int argc, char **argv)
 {
-	int   iDelay = 0;
 	char  recvBuff[BLE_MAX_SIZE_RECV_MSG+1] = {'\0', };
 	char* subMenu = NULL;
-	char* pSendMsg = NULL;
 
 	char* deviceID = NULL;
-	char* deviceAddr = NULL;
 
 	subMenu = GRIB_CMD_SUB[argv];
 
@@ -1226,13 +1208,6 @@ void Grib_MenuTest(int argc, char **argv)
 		Grib_PrintOnlyHex(binBuff, binSize);
 	}
 
-	if(STRCASECMP(subMenu, "stack") == 0)
-	{
-		long stackLimit = Grib_GetStackLimit();
-
-		return;
-	}
-
 	if(STRCASECMP(subMenu, "cmd") == 0)
 	{
 		const char* FUNC = "CMD-TEST";
@@ -1327,10 +1302,6 @@ void Grib_MenuTest(int argc, char **argv)
 #ifdef FEATURE_CAS
 	if(STRCASECMP(subMenu, "cas") == 0)
 	{
-		char* url = argv[GRIB_CMD_ARG1];
-		hostent* pHost = NULL;
-		int i = 0;
-
 		Grib_CasTest(argc, argv);
 		GRIB_LOGD("# TEST-CAS: DONE ...\n");
 

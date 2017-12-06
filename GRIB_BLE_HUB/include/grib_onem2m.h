@@ -49,7 +49,7 @@ shbaek: Define Fixed Data
 #define ONEM2M_FIX_ATTR_ET_TIME							"122359"
 
 #define ONEM2M_FIX_ATTR_ET								"20991231T235959"
-#define ONEM2M_FIX_ATTR_MNI								100
+#define ONEM2M_FIX_ATTR_MNI								1000//shbaek: Increase Count Request by Herit.
 #define ONEM2M_FIX_ATTR_MBS								1024000
 #define ONEM2M_FIX_ATTR_MIA								36000
 #define ONEM2M_FIX_ATTR_RR								"FALSE"

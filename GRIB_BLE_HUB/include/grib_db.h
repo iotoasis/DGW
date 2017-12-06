@@ -310,7 +310,6 @@ int Grib_DbSetDeviceFunc(Grib_DbRowDeviceFunc* pRowDeviceFunc);
 int Grib_DbGetDeviceFunc(char *deviceID, Grib_DbRowDeviceFunc** ppRowDeviceFunc, int *pRowCount);
 int Grib_DbDelDeviceFunc(char* deviceID);
 
-
 int Grib_DbGetCacheCount(void);
 int Grib_DbGetCacheInfo(Grib_DbRowCacheRi* pRowCacheRi);
 int Grib_DbGetCacheRi(Grib_DbRowCacheRi* pRowCacheRi);

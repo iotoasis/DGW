@@ -134,13 +134,16 @@ int Grib_isNumString(char* strNum)
 {
 	int i = 0;
 	int isNum = FALSE;
+	int strLen = 0;
 
 	if( (strNum==NULL) )
 	{
 		return FALSE;
 	}
 
-	for(i=0; i<strlen(strNum); i++)
+	strLen = STRLEN(strNum);
+
+	for(i=0; i<strLen; i++)
 	{
 		isNum = isdigit(strNum[i]);
 		if(isNum == FALSE)
@@ -209,7 +212,6 @@ int Grib_GetBase64Value(char data)
 int Grib_Base64Encode(char* srcBuff, char* encBuff, int opt)
 {
 	int i = 0;
-	int iRes = GRIB_ERROR;
 	int srcSize = 0;
 	int encSize = 0;
 
@@ -310,7 +312,6 @@ int Grib_Base64Encode(char* srcBuff, char* encBuff, int opt)
 int Grib_Base64Decode(char* srcBuff, char* decBuff, int opt)
 {
 	int i = 0;
-	int iRes = GRIB_ERROR;
 	int srcSize = 0;
 	int decSize = 0;
 
@@ -684,12 +685,8 @@ char* Grib_TrimAll(char *pSource)
 int Grib_WriteTextFile(char* filePath, char* pBuff, char* opt)
 {
 	int i = 0;
-	int iReadCount = 0;
-	int iTotalCount = 0;
-	int iCopyCount = 0;
 
 	FILE *pFile = NULL;
-	char  pLineBuff[SIZE_1K] = {'\0', };
 
 	if( (STRLEN(filePath)<=0) || (pBuff==NULL) )
 	{
@@ -726,7 +723,6 @@ int Grib_WriteTextFile(char* filePath, char* pBuff, char* opt)
 
 int Grib_ReadTextFile(char* filePath, char* pBuff, int opt)
 {
-	int iReadCount = 0;
 	int iTotalCount = 0;
 	int iCopyCount = 0;
 
@@ -866,10 +862,13 @@ int Grib_RandNum(int iMin, int iRange)
 int Grib_StrToHex(char* strBuff, char* hexBuff)
 {
 	int i = 0;
+	int strLen = 0;
 
-	for(i=0; i<strlen(strBuff); i++)
+	strLen = STRLEN(strBuff);
+
+	for(i=0; i<strLen; i++)
 	{
-		sprintf(hexBuff+i*2, "%02X", *(strBuff+i));
+		SPRINTF(hexBuff+i*2, "%02X", *(strBuff+i));
 	}
 
 	return i;
@@ -879,7 +878,6 @@ int Grib_StrToHex(char* strBuff, char* hexBuff)
 int Grib_HexToBin(char* hexBuff, char* binBuff, int strSize)
 {
 	int i = 0;
-	int pos = 0;
 	char strBin[3] = {'\0', };
 
 	for(i=0; i+1<strSize; i+=2)

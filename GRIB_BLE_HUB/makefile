@@ -8,7 +8,6 @@ RM=-rm
 RMFLAG=-rf
 LDFLAGS=
 CFLAGS=-Wall -c
-#CXXFLAGS=-Wall -g
 CXXFLAGS=-w -g
 
 TEMP_OS=$(shell sed -n '/^ID=/p' "/etc/os-release")

@@ -145,8 +145,6 @@ int Grib_ScanDeviceToDb(Grib_ScanDevInfo* pScanDevInfo)
 {
 	const char* FUNC_TAG = "HCI-INSERT";
 
-	int i = 0;
-	int iCount = 0;
 	int iRes = GRIB_ERROR;
 	int iDBG = FALSE;
 

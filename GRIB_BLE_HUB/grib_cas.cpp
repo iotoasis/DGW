@@ -233,7 +233,6 @@ void Grib_CasTest(int argc, char **argv)
 	char* hubID = "TEST_HUB01";
 	char* devID = "TEST_DEV01";
 
-	char  certBuff[SIZE_1K] = {'\0', };
 	char  keyBuff[GRIB_MAX_SIZE_AUTH_KEY] = {'\0', };
 
 	Grib_ConfigInfo* pConfigInfo = NULL;

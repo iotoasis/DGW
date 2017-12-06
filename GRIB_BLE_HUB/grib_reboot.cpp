@@ -72,7 +72,6 @@ int Grib_MenuRebootConfig(void)
 	const int   MAX_REBOOT_TIME = 24;
 	const int   REBOOT_WAIT_SEC = 30;
 
-	int iDBG = FALSE;
 	int intervalTime = MAX_REBOOT_TIME;
 	
 	time_t sysTimer;
@@ -158,7 +157,6 @@ int Grib_MenuRebootTimer(int waitTime, char* reason)
 	const char* FUNC = "REBOOT-TIMER";
 
 	time_t sysTimer;
-	struct tm *sysTime;
 
 	char rebootMsg[SIZE_1K] = {'\0', };
 
@@ -202,10 +200,9 @@ int main(int argc, char **argv)
 	const char* FUNC = "REBOOT-MAIN";
 
 	char* mainMenu = NULL;
-	char* subMenu = NULL;
 
-//	realpath(argv[GRIB_CMD_NAME], MAIN_PATH);
 	getcwd(MAIN_PATH, sizeof(MAIN_PATH));
+
 	GRIB_LOGD("\n");
 	GRIB_LOGD("# %s: %s\n", FUNC, MAIN_PATH);
 
