@@ -1,6 +1,6 @@
 # Setup Guide
 
-Gateway를 사용하기 위한 OS 설치 방법등에 대해 설명한다.
+This guide shows how to install the OS to use Gateway.
 
 
 ## Requirements
@@ -11,29 +11,29 @@ Gateway를 사용하기 위한 OS 설치 방법등에 대해 설명한다.
 
 ![Guide RaspberryPi](./IMG/RaspberryPi.png)
 <br>
-※ Raspberry 공식 사이트: [https://www.raspberrypi.org](https://www.raspberrypi.org/)
+※ Raspberry official site: [https://www.raspberrypi.org](https://www.raspberrypi.org/)
 
 ![Guide AduinoUno](./IMG/AduinoUno.png)
 <br>
-※ Aduino 공식 사이트: [https://www.arduino.cc](https://www.arduino.cc/)
+※ Aduino official site: [https://www.arduino.cc](https://www.arduino.cc/)
 
 
-## OS 설치 Guide
+## OS Installation Guide
 
-- Raspbian OS 이미지를 Download한다.<br>
- Raspberry 공식 다운로드 사이트: [https://www.raspberrypi.org/downloads](https://www.raspberrypi.org/downloads/)
+- Download the Raspbian OS image.<br>
+ Raspberry Official Download Site: [https://www.raspberrypi.org/downloads](https://www.raspberrypi.org/downloads/)
 <br><br>
 
-- 미리 준비한 SD Card를 Format한다.<br>
- 사용 예) SDFormatter<br>
+- Format SD card prepared in advance.<br>
+ Example) SDFormatter<br>
 ![Guide SDFormatter](./IMG/SDFormatter.png)
 <br><br>
 
-- 다운로드 받은 Raspbian OS 이미지를 Write한다.<br>
- 사용 예) Win32DiskImager<br>
+- Write the downloaded Raspbian OS image.<br>
+ Example) Win32DiskImager<br>
 ![Guide Win32DiskImager](./IMG/ImgWriter.png)
 <br><br>
 
-- ※ 그외 OS 설치에 관한 자세한 설명은 Raspberry 공식 Help 페이지 참조<br>
- Raspberry 공식 Help 사이트: [https://www.raspberrypi.org/help](https://www.raspberrypi.org/help/)
+- ※ For detailed instructions on installing other OS, please see the Raspberry official help page<br>
+ Raspberry Official Help Site: [https://www.raspberrypi.org/help](https://www.raspberrypi.org/help/)
 <br>
