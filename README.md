@@ -10,12 +10,12 @@
 
 # DGW (Device Gateway)
  DGW is greatly divided into Sensor/Device that collects data and performs specific functions, and Gateway(Hub) which plays the role of exchanging data collected from Sensor/Device with SI Server.<br>
- ¡Ø Hereinafter, the thing that contains only a data collecting function is called a ¡®Sensor¡¯ and the thing that can collects data and performs specific functions are called ¡®Device¡¯.
+ - Hereinafter, the thing that contains only a data collecting function is called a "Sensor" and the thing that can collects data and performs specific functions are called "Device".
 
 
 ## Gateway(Hub)
- Hereinafter, the thing that contains only a data collecting function is called a ¡®Sensor¡¯ and the thing that can collects data and performs specific functions are called ¡®Device¡¯.<br>
- Gateway has ¡®Report¡¯ function that collects data from sensor/device, processes it and sends it to SI server,<br>
+ Hereinafter, the thing that contains only a data collecting function is called a "Sensor" and the thing that can collects data and performs specific functions are called "Device".<br>
+ Gateway has "Report" function that collects data from sensor/device, processes it and sends it to SI server,<br>
  and has control function to control device by receiving control message from SI Server.
  
 
