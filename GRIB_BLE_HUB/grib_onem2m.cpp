@@ -275,7 +275,7 @@ int Grib_GetAttrExpireTime(char* attrBuff, TimeInfo* pTime)
 					exTimeInfo.tm_hour, exTimeInfo.tm_min, exTimeInfo.tm_sec);
 	}
 
-	if(gDebugOneM2M)
+	if(FALSE)//(gDebugOneM2M)
 	{
 		Grib_ShowCurrDateTime();
 		GRIB_LOGD("# EXPIRE  TIME: %c[1;33m%s%c[0m\n", 27, attrBuff, 27);

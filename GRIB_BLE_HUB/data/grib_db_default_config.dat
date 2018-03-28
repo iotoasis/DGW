@@ -30,7 +30,7 @@ SMD_SERVER_PORT                   : 20080
 # ########## ########## ########## ########## ########## ##########
 # shbaek: ETC
 # ########## ########## ########## ########## ########## ##########
-RESET_TIME_HOUR                   : 6
+RESET_TIME_HOUR                   : 24
 GRIB_DEBUG_LEVEL                  : 0
-GRIB_TOMBSTONE            	      : 0
+GRIB_TOMBSTONE                    : 0
 

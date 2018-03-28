@@ -298,13 +298,13 @@ int Grib_LoadDefaultConfig(Grib_ConfigInfo* pConfigInfo)
 
 	if(iDBG)Grib_ShowConfig(pConfigInfo);
 
-	FREE(pTrim);
-
 	if(pConfigFile != NULL)
 	{
 		fclose(pConfigFile);
 		pConfigFile = NULL;
 	}
+
+	FREE(pTrim);
 
 	if(iDBG)GRIB_LOGD("# %s: DONE ... \n", FUNC);
 

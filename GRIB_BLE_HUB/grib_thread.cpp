@@ -413,7 +413,7 @@ void* Grib_WatchDogThread(void* threadArg)
 
 			Grib_ErrLog(FUNC, "ALL DEVICE BLE CONTINUAL ERROR !!!");
 
-			systemCommand(pCommand, pBuffer, sizeof(pBuffer));
+			//systemCommand(pCommand, pBuffer, sizeof(pBuffer));
 		}
 
 		if(notWorkDeviceCount == TOTAL_DEVICE_COUNT)
@@ -423,7 +423,7 @@ void* Grib_WatchDogThread(void* threadArg)
 
 			Grib_ErrLog(FUNC, "ALL DEVICE NOT WORKING !!!");
 
-			systemCommand(pCommand, pBuffer, sizeof(pBuffer));
+			//systemCommand(pCommand, pBuffer, sizeof(pBuffer));
 		}
 
 	}

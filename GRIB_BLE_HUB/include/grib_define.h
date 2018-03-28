@@ -21,7 +21,7 @@ shbaek: Include File
 /* ********** ********** ********** ********** ********** ********** ********** ********** ********** **********
 shbaek: Define Basic Keyword
 ********** ********** ********** ********** ********** ********** ********** ********** ********** ********** */
-#define GRIB_HUB_VERSION					"1701130_MOD_EXPIRE_TIME"
+#define GRIB_HUB_VERSION					"180328_APPLY_SECURE_CODE"
 
 #define GRIB_PLATFORM_SERVER_USE_DNS		TRUE
 #define GRIB_PLATFORM_SERVER_DOMAIN		"si.iotoasis.org"
@@ -148,6 +148,7 @@ shbaek: Define Constant
 #define GRIB_MAX_SIZE_IP_STR							GRIB_MAX_SIZE_BRIEF
 #define GRIB_MAX_SIZE_URI								SIZE_1K
 #define GRIB_MAX_SIZE_AUTH_KEY						128 //shbaek: Just In Case ...
+#define GRIB_MAX_SIZE_STR_BUFF						SIZE_1M
 
 #define DEVICE_MAX_COUNT_FUNC							99
 #define DEVICE_MAX_SIZE_ID							GRIB_MAX_SIZE_SHORT
@@ -195,7 +196,7 @@ shbaek: for Readability
 #endif
 
 #ifndef STRLEN
-#define STRLEN(strSrc)									(strSrc==NULL?0:strlen((const char *)strSrc))
+#define STRLEN(strSrc)									(strSrc==NULL?0:strnlen((const char *)strSrc, GRIB_MAX_SIZE_STR_BUFF))
 #endif
 
 #ifndef STRDUP //shbaek: Return Allocated Another String Memory.
