@@ -28,9 +28,9 @@
 
 
 ## Documents
- - [SetUp Guide](https://github.com/iotoasis/GRIB_DOC/SetupGuide.md)
- - [Build Guide](https://github.com/iotoasis/GRIB_DOC/BuildGuide.md)
- - [Gateway Guide](https://github.com/iotoasis/GRIB_DOC/GatewayGuide.md)
+ - [SetUp Guide](https://github.com/iotoasis/DGW/blob/master/GRIB_DOC/SetupGuide.md)
+ - [Build Guide](https://github.com/iotoasis/DGW/blob/master/GRIB_DOC/BuildGuide.md)
+ - [Gateway Guide](https://github.com/iotoasis/DGW/blob/master/GRIB_DOC/GatewayGuide.md)
 
 
 ## Downloads
